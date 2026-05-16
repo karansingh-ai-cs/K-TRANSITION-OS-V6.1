@@ -1,0 +1,151 @@
+{
+    "rules": [
+        {
+            "id": "G001",
+            "keywords": ["garbage", "trash", "쓰레기", "recycling", "재활용", "food waste", "음식물", "종량제", "trash bag", "waste"],
+            "risk": "MEDIUM",
+            "problem": "Korea has STRICT garbage rules. Using wrong bags = fines up to 100,000 won.",
+            "action": [
+                "Buy 종량제 봉투 (official waste bags) at any convenience store — 5L/10L/20L sizes",
+                "Food waste (음식물 쓰레기) goes in SEPARATE green bins",
+                "Recycling: separate into glass/plastic/paper/cans",
+                "Never leave garbage out on wrong day — check your building's schedule",
+                "Large items (furniture): contact 주민센터 for special collection"
+            ]
+        },
+        {
+            "id": "G002",
+            "keywords": ["arc", "alien registration", "외국인등록", "foreigner registration",
+                         "registration card", "hikorea", "arrived", "months ago", "90 days",
+                         "visa expire", "stay extension"],
+            "risk": "HIGH",
+            "problem": "The ARC (외국인등록증) is MANDATORY if staying over 90 days. Missing the deadline = legal violation and fines.",
+            "action": [
+                "Apply within 90 days of arrival at 출입국관리소 (immigration office)",
+                "Book appointment at HiKorea.go.kr FIRST — walk-ins usually not accepted",
+                "Bring: passport, university enrollment certificate, 2 passport photos, 30,000 won",
+                "ARC needed for: bank account, proper phone plan, renting, health insurance",
+                "Processing takes 2-4 weeks — apply early!"
+            ]
+        },
+        {
+            "id": "G003",
+            "keywords": ["bank", "은행", "open account", "통장", "shinhan", "kookmin", "kakao bank", "transfer"],
+            "risk": "LOW",
+            "problem": "Opening a Korean bank account requires some preparation but it's straightforward.",
+            "action": [
+                "Easiest: Kakao Bank (mobile only) — open with Korean phone number + passport",
+                "Best for foreigners: Shinhan (신한) or KB Kookmin (국민)",
+                "Need: ARC + passport (or passport + enrollment cert for new arrivals at some banks)",
+                "Cheapest international transfer: Wise app > bank wire",
+                "Campus bank branch is usually most foreigner-friendly"
+            ]
+        },
+        {
+            "id": "G004",
+            "keywords": ["sim card", "phone plan", "유심", "통신사", "kt", "skt", "lg uplus", "data plan"],
+            "risk": "LOW",
+            "problem": "You need a Korean phone number for banking, government apps, and daily life.",
+            "action": [
+                "Airport: buy at SK Telecom, KT, or LG U+ booth in arrivals area",
+                "Full plan needs ARC — start with prepaid SIM if you just arrived",
+                "Student plans: ~20,000-30,000 won/month for unlimited calls + 10GB+ data",
+                "Budget option: 알뜰폰 (MVNO) plans from HelloMobile, LycaMobile"
+            ]
+        },
+        {
+            "id": "G005",
+            "keywords": ["noise", "층간소음", "neighbor", "loud", "complaint", "소음", "party", "10pm"],
+            "risk": "MEDIUM",
+            "problem": "층간소음 (floor noise) is taken very seriously in Korea. Can cause lease problems.",
+            "action": [
+                "Quiet hours: 10PM-7AM",
+                "Wear slippers indoors — reduces noise significantly",
+                "If you get complaint: apologize immediately and fix it",
+                "Your neighbor noisy? Call 층간소음이웃사이센터 at 1661-2642"
+            ]
+        },
+        {
+            "id": "G006",
+            "keywords": ["lonely", "homesick", "depressed", "anxious", "stressed", "sad", "struggling",
+                         "mental health", "외롭다", "우울", "불안", "힘들다", "힘들어", "지쳐"],
+            "risk": "MEDIUM",
+            "problem": "Adjusting to a new country is genuinely hard. Feeling lonely or overwhelmed is completely normal.",
+            "action": [
+                "University 학생상담센터 (counseling center): FREE and confidential, often has English",
+                "Foreigner helpline: 1345 (24/7, multilingual)",
+                "Join international student groups on Facebook/KakaoTalk",
+                "Give yourself time — most students say months 2-3 are hardest. It gets better.",
+                "If feelings last more than 2 weeks: please speak with a counselor"
+            ]
+        },
+        {
+            "id": "G007",
+            "keywords": ["emergency", "help", "accident", "fire", "crime", "hurt", "ambulance", "police",
+                         "긴급", "응급", "사고", "화재", "도둑", "위험"],
+            "risk": "HIGH",
+            "problem": "Emergency situation detected. Here are Korea's emergency numbers.",
+            "action": [
+                "🚨 Police: 112 (24/7) — say 'English please' for interpreter",
+                "🚑 Ambulance/Fire: 119 (24/7) — say 'English please'",
+                "🌐 Foreigner helpline: 1345 (24/7, many languages)",
+                "In text: just type 112 and location if you can't speak",
+                "Nearest hospital: search 응급실 on Naver Maps"
+            ]
+        },
+        {
+            "id": "G008",
+            "keywords": ["bus", "subway", "지하철", "버스", "t-money", "티머니", "transit", "how to use subway"],
+            "risk": "LOW",
+            "problem": "Korean public transport is excellent but requires a transit card.",
+            "action": [
+                "T-Money card (티머니): 4,000 won at CU/GS25/7-Eleven, charge at station or store",
+                "Subway: 1,250-1,550 won per ride based on distance",
+                "Bus: ~1,200 won, free transfer within 30 minutes on T-Money",
+                "Apps: Kakao Maps for bus routes, Naver Maps for walking + subway",
+                "Last subway: approximately 11:30PM-midnight depending on line"
+            ]
+        },
+        {
+            "id": "G009",
+            "keywords": ["hospital", "sick", "doctor", "medicine", "pharmacy", "health insurance",
+                         "건강보험", "약국", "병원", "nhis"],
+            "risk": "MEDIUM",
+            "problem": "Healthcare is affordable with insurance but expensive without. Make sure you understand your status.",
+            "action": [
+                "NHIS (국민건강보험): auto-enrolled after 6 months stay, ~30,000-40,000/month",
+                "With NHIS: pay only 20-30% of hospital costs",
+                "University clinic: cheapest option for minor illness",
+                "Pharmacy (약국): no prescription needed for basic medicine",
+                "Emergency: 119 or search 응급실 on Naver Maps"
+            ]
+        },
+        {
+            "id": "G010",
+            "keywords": ["scam", "fraud", "fake", "suspicious", "보이스피싱", "voice phishing",
+                         "easy money", "part time job too good"],
+            "risk": "HIGH",
+            "problem": "International students are frequently targeted by scams in Korea.",
+            "action": [
+                "Voice phishing (보이스피싱): Korean government NEVER asks for money over phone. Hang up.",
+                "Fake jobs offering unusually high pay for easy work = scam",
+                "Rental fraud: always check 등기부등본 before paying any deposit",
+                "Report scams: ecrm.police.go.kr or call 182",
+                "Advice: 1345 helpline (English available)"
+            ]
+        },
+        {
+            "id": "G011",
+            "keywords": ["part time", "part-time", "work", "job", "알바", "아르바이트", "working hours", "work permit"],
+            "risk": "MEDIUM",
+            "problem": "International students have specific work hour limits. Exceeding them = visa violation.",
+            "action": [
+                "D-2 visa: max 25 hours/week during semester, unlimited during vacation",
+                "D-4 visa: need separate work permit (시간제취업허가) from immigration",
+                "Apply for work permit at HiKorea.go.kr before starting any job",
+                "Popular student jobs: cafe, restaurant, convenience store, tutoring, translation",
+                "Min wage 2025: ~9,860 won/hour (check current rate at labour.go.kr)"
+            ]
+        }
+    ]
+}

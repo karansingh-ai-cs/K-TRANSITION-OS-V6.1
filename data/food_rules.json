@@ -1,0 +1,81 @@
+{
+    "haram_ingredients": [
+        "pork", "pig", "bacon", "ham", "lard", "gelatin",
+        "alcohol", "wine", "beer", "soju", "makgeolli", "mirin", "cooking wine",
+        "소주", "맥주", "막걸리", "돼지", "돼지고기",
+        "삼겹살", "samgyeopsal", "목살", "moksal",
+        "족발", "jokbal", "보쌈", "bossam", "순대", "sundae",
+        "선지", "항정살", "hangjeongsal", "돈", "돈육",
+        "요리술", "청주", "pepperoni", "salami"
+    ],
+    "rules": [
+        {
+            "id": "F001",
+            "keywords": ["pork", "돼지", "삼겹살", "bacon", "ham", "lard", "족발", "보쌈", "목살", "돈육", "갈비살"],
+            "risk": "HIGH",
+            "problem": "This food contains pork or pork-derived ingredients. Not suitable for halal diet.",
+            "action": [
+                "Do not eat this food.",
+                "Find halal restaurants: HalalKorea.com or search 할랄 on Naver Maps",
+                "Ask: 할랄 음식 있나요? (do you have halal food?)",
+                "Itaewon area in Seoul has the most halal options"
+            ]
+        },
+        {
+            "id": "F002",
+            "keywords": ["mirin", "cooking wine", "요리술", "청주", "soju marinade", "beer batter", "wine sauce"],
+            "risk": "MEDIUM",
+            "problem": "This dish may contain alcohol as a cooking ingredient. Common in Korean marinades.",
+            "action": [
+                "Ask: 이 음식에 술이 들어가나요? (Does this have alcohol?)",
+                "Choose steamed or boiled dishes — less likely to contain alcohol",
+                "Check packaging for 주정 (alcohol ingredient)"
+            ]
+        },
+        {
+            "id": "F003",
+            "keywords": ["감자탕", "설렁탕", "뼈해장국", "국밥", "seolleongtang", "gamjatang", "bone soup", "bone broth", "뼈"],
+            "risk": "HIGH",
+            "problem": "This soup is made with PORK BONE broth. Even if you remove the meat, the broth itself contains pork.",
+            "action": [
+                "Do not order this — the entire broth is pork-based",
+                "Safe alternatives: 미역국 (seaweed soup), 콩나물국 (bean sprout soup)",
+                "Look for restaurants with 소고기 국물 (beef broth) option"
+            ]
+        },
+        {
+            "id": "F004",
+            "keywords": ["된장찌개", "doenjang", "doenjang jjigae", "kimchi soup", "나물", "namul"],
+            "risk": "MEDIUM",
+            "problem": "This dish appears vegetarian but typically uses anchovy stock (멸치 육수) or fish sauce. Not vegetarian.",
+            "action": [
+                "Ask: 멸치 육수 사용하나요? (Do you use anchovy broth?)",
+                "Request: 채소 육수로 만들어 주세요 (Please make with vegetable broth)",
+                "Temple food restaurants (사찰음식) serve strictly vegan Korean meals"
+            ]
+        },
+        {
+            "id": "F005",
+            "keywords": ["유통기한", "소비기한", "expiry", "best before", "expired", "날짜", "제조일"],
+            "risk": "LOW",
+            "problem": "Korean date formats are different. Make sure you understand which date is which.",
+            "action": [
+                "유통기한 = best before / sell-by (sometimes still edible after)",
+                "소비기한 = use-by / expiry (do NOT eat after this one)",
+                "제조일 = date it was made",
+                "Format is YYYY.MM.DD"
+            ]
+        },
+        {
+            "id": "F006",
+            "keywords": ["spicy", "매운", "불닭", "핵불닭", "청양고추", "fire noodle"],
+            "risk": "LOW",
+            "problem": "Korean spicy food is MUCH hotter than you expect. Even 'mild' versions can be intense.",
+            "action": [
+                "Start with 순한 맛 (mild flavor) option",
+                "Drink milk or eat rice to neutralize spice — NOT water",
+                "Say 덜 맵게 해주세요 (please make it less spicy)"
+            ]
+        }
+    ]
+}

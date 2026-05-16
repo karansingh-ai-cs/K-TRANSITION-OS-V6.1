@@ -1,0 +1,68 @@
+{
+    "rules": [
+        {
+            "id": "H001",
+            "keywords": ["no contract", "without contract", "계약서 없", "verbal", "cash only",
+                         "contract later", "contract next week", "sign later", "나중에 계약",
+                         "contract after", "trust me", "sign after", "after moving", "sign tomorrow"],
+            "risk": "HIGH",
+            "problem": "DANGER: You are about to pay a deposit without a signed contract. This is how most international students lose their money in Korea. No contract = no legal protection.",
+            "action": [
+                "STOP. Do not send any money.",
+                "Demand written contract (임대차계약서) BEFORE any payment",
+                "Verify landlord owns the property: iros.go.kr, costs only 700 won",
+                "After signing: go to 주민센터 within 14 days for 전입신고 and 확정일자",
+                "Call 1345 for free legal advice in English"
+            ]
+        },
+        {
+            "id": "H002",
+            "keywords": ["deposit", "보증금", "jeonse", "전세", "wolse", "월세", "too cheap",
+                         "very cheap rent", "much cheaper", "급매", "suspicious price"],
+            "risk": "HIGH",
+            "problem": "Rental fraud (전세 사기) is extremely common in Korea. Prices too cheap compared to nearby places = major red flag.",
+            "action": [
+                "Check market price on land.naver.com or Zigbang app",
+                "If price is 20%+ below market rate, be very suspicious",
+                "Always check 등기부등본 (property registry) at iros.go.kr",
+                "Never rush into signing — legitimate landlords won't pressure you"
+            ]
+        },
+        {
+            "id": "H003",
+            "keywords": ["전입신고", "move-in registration", "주민센터", "확정일자", "didn't register", "forgot"],
+            "risk": "HIGH",
+            "problem": "Without 전입신고 and 확정일자, you have zero legal protection for your deposit.",
+            "action": [
+                "Go to nearest 주민센터 within 14 days of moving in",
+                "Bring: passport, ARC, signed lease contract",
+                "Request 전입신고 (free) AND 확정일자 (600 won)",
+                "Can also be done online at government24.go.kr"
+            ]
+        },
+        {
+            "id": "H004",
+            "keywords": ["고시원", "gosiwon", "goshiwon", "tiny room", "shared bathroom"],
+            "risk": "MEDIUM",
+            "problem": "고시원 rooms are very small (3-7 sqm). Good for short stays but check fire safety.",
+            "action": [
+                "Check for fire sprinklers and emergency exit signs",
+                "Ask if meals are included — some offer free rice and kimchi",
+                "Typical cost: 300,000-500,000 won/month with utilities",
+                "Not recommended for stays longer than 3 months (mental health impact)"
+            ]
+        },
+        {
+            "id": "H005",
+            "keywords": ["mold", "곰팡이", "leak", "누수", "broken heater", "보일러", "landlord won't fix"],
+            "risk": "MEDIUM",
+            "problem": "Mold and maintenance issues are common in Korean housing. Landlord is legally required to fix structural issues.",
+            "action": [
+                "Take photos of all defects on move-in day immediately",
+                "Tell landlord via KakaoTalk or text to create a written record",
+                "Boiler (보일러) breaking in winter = urgent. Escalate immediately.",
+                "If landlord refuses: contact 주택임대차분쟁조정위원회 (housing dispute committee)"
+            ]
+        }
+    ]
+}
