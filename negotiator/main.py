@@ -260,10 +260,11 @@ app.add_middleware(
 )
 
 try:
-    with open("index.html", "r", encoding="utf-8") as f:
+    index_path = _this_dir / "index.html"
+    with open(index_path, "r", encoding="utf-8") as f:
         HTML_CONTENT = f.read()
 except FileNotFoundError:
-    HTML_CONTENT = "<h1>index.html not found</h1>"
+    HTML_CONTENT = f"<h1>index.html not found at {index_path}</h1>"
 
 @app.get("/")
 async def get_index():

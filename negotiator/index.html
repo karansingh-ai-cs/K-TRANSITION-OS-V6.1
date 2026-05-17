@@ -983,11 +983,8 @@
 const tgApp = window.Telegram?.WebApp;
 if (tgApp) { tgApp.ready(); tgApp.expand(); }
 
-const SERVER_URL = (() => {
-  const p = new URLSearchParams(window.location.search);
-  return (p.get('server') || window.location.origin).replace(/\/$/, '');
-})();
-const WS_URL = SERVER_URL.replace('https://', 'wss://').replace('http://', 'ws://') + '/ws/negotiate';
+const SERVER_URL = 'https://k-transition-os-v6-1.onrender.com';
+const WS_URL = 'wss://k-transition-os-v6-1.onrender.com/ws/negotiate';
 
 let ws              = null;
 let selectedGoal    = '';
