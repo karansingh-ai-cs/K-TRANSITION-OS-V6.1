@@ -20,7 +20,7 @@ import threading
 from datetime import datetime, UTC
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
-    ReplyKeyboardMarkup, KeyboardButton
+    ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 )
 from telegram.request import HTTPXRequest
 from telegram.ext import (
@@ -42,6 +42,7 @@ from ai_brain import (
 from risk_detector import scan_message, build_context_for_ai
 from memory import (
     setup, get_or_create_user, save_message, get_history,
+    save_buddy_message, get_buddy_history,
     log_situation, get_situations, set_diet, add_allergy, remove_allergy,
     set_university, set_city, set_arrival_date, get_progress,
     add_korean_word_learned, record_quiz_answer, mark_task_done,
@@ -61,7 +62,7 @@ from schedule_maker import (
     generate_ai_schedule, get_week_tasks, FIRST_WEEK_TASKS
 )
 from news_fetcher import get_news, format_news, get_news_for_students, filter_news_by_topic
-from maps_helper import format_map_response, format_place_info, get_area_guide, IMPORTANT_PLACES, translate_to_korean
+from maps_helper import format_map_response, format_place_info, get_area_guide, IMPORTANT_PLACES, translate_to_korean, format_map_guide, format_transport_links
 from differentiator import (
     format_exchange_rates, format_korean_name, format_cultural_tip,
     format_scam_scan, format_daily_tip, get_all_cultural_topics,
@@ -262,14 +263,16 @@ async def _handle_button_text(update, context, user_id, user_info, text):
         set_state(user_id, State.MAP_WAITING_QUERY)
         await safe_send(update, "🗺️ Where do you want to go?\n\n• Place name: \"pharmacy\", \"halal restaurant\"\n• Directions: \"from Hongdae to Gangnam\"\n• Nearby: \"nearest ATM\"\n\nAll links work with Naver + Kakao + Google Maps!", reply_markup=kb)
     elif action == "buddy_start":
-        set_state(user_id, State.BUDDY_ACTIVE, {"history": []})
+        db_history = get_buddy_history(user_id, limit=20)
+        set_state(user_id, State.BUDDY_ACTIVE, {"history": db_history})
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
         await asyncio.sleep(random.uniform(0.5, 1.2))
-        response = await chat_with_buddy("hey! what's up?", user_info, [])
-        update_context(user_id, history=[
-            {"role": "user", "content": "hey! what's up?"},
-            {"role": "assistant", "content": response},
-        ])
+        response = await chat_with_buddy("hey! what's up?", user_info, db_history)
+        save_buddy_message(user_id, "user", "hey! what's up?")
+        save_buddy_message(user_id, "assistant", response)
+        db_history.append({"role": "user", "content": "hey! what's up?"})
+        db_history.append({"role": "assistant", "content": response})
+        update_context(user_id, history=db_history[-16:])
         await safe_send(update, f"🧑 민수:\n{response}", reply_markup=kb)
     elif action == "news_fetch":
         await update.message.reply_text("📰 Fetching latest Korea news...")
@@ -329,9 +332,14 @@ async def _handle_active_state(update, context, user_id, user_info, text, state)
 
     elif state == State.MAP_WAITING_QUERY:
         city = user_info.get("city", "")
-        info = format_place_info(text.lower().strip(), city)
+        info, venue = format_place_info(text.lower().strip(), city)
         if info:
             clear_state(user_id)
+            if venue:
+                await update.message.reply_venue(
+                    latitude=venue["lat"], longitude=venue["lng"],
+                    title=venue["title"], address=venue["address"], reply_markup=kb
+                )
             await safe_send(update, info, reply_markup=kb)
             return
         korean_q = translate_to_korean(text)
@@ -377,6 +385,8 @@ async def _handle_active_state(update, context, user_id, user_info, text, state)
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
         await asyncio.sleep(random.uniform(0.5, 1.8))
         response = await chat_with_buddy(text, user_info, history)
+        save_buddy_message(user_id, "user", text)
+        save_buddy_message(user_id, "assistant", response)
         history.append({"role": "user", "content": text})
         history.append({"role": "assistant", "content": response})
         if len(history) > 20:
@@ -436,21 +446,28 @@ async def _execute_intent(update, context, user_id, user_info, intent_result, or
                 msg = f"📍 Directions: {origin} → {dest}\n\n{links}\n💡 Kakao Maps shows real-time bus/subway arrival"
                 await safe_send(update, msg, reply_markup=kb)
                 return
-        info = format_place_info(query.lower().strip(), city)
+        info, venue = format_place_info(query.lower().strip(), city)
         if info:
+            if venue:
+                await update.message.reply_venue(
+                    latitude=venue["lat"], longitude=venue["lng"],
+                    title=venue["title"], address=venue["address"], reply_markup=kb
+                )
             await safe_send(update, info, reply_markup=kb)
             return
         await safe_send(update, format_map_response(query, city, korean_q), reply_markup=kb)
 
     elif intent in ("buddy", "emotional_support"):
-        set_state(user_id, State.BUDDY_ACTIVE, {"history": []})
+        db_history = get_buddy_history(user_id, limit=20)
+        set_state(user_id, State.BUDDY_ACTIVE, {"history": db_history})
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
         await asyncio.sleep(random.uniform(0.5, 1.5))
-        response = await chat_with_buddy(original_text, user_info, [])
-        update_context(user_id, history=[
-            {"role": "user", "content": original_text},
-            {"role": "assistant", "content": response},
-        ])
+        response = await chat_with_buddy(original_text, user_info, db_history)
+        save_buddy_message(user_id, "user", original_text)
+        save_buddy_message(user_id, "assistant", response)
+        db_history.append({"role": "user", "content": original_text})
+        db_history.append({"role": "assistant", "content": response})
+        update_context(user_id, history=db_history[-16:])
         await safe_send(update, f"🧑 민수:\n{response}", reply_markup=kb)
 
     elif intent == "interpret":
@@ -571,6 +588,36 @@ async def _execute_intent(update, context, user_id, user_info, intent_result, or
 
     elif intent == "schedule":
         await safe_send(update, get_first_week_checklist(user_info), reply_markup=kb)
+
+    elif intent == "reminder":
+        task = entities.get("task", "something")
+        time_str = entities.get("time", "later")
+        
+        # In a full implementation, we'd parse time_str with a library like dateparser
+        # For now, we'll schedule a generic 1-hour/15-min escalating reminder
+        # We assume the user wants an alert soon
+        from datetime import datetime, timedelta, UTC
+        from notifier import add_custom_reminder
+        
+        now = datetime.now(UTC)
+        run_date = now + timedelta(minutes=60) # Default to 1 hour from now
+        
+        # Crude time parsing for demonstration
+        t_lower = time_str.lower()
+        if "min" in t_lower:
+            try:
+                mins = int(''.join(filter(str.isdigit, t_lower)))
+                run_date = now + timedelta(minutes=mins)
+            except: pass
+        elif "hour" in t_lower:
+            try:
+                hrs = int(''.join(filter(str.isdigit, t_lower)))
+                run_date = now + timedelta(hours=hrs)
+            except: pass
+            
+        add_custom_reminder(user_id, task, run_date)
+        
+        await safe_send(update, f"⏰ Got it! I'll remind you to '{task}' at {run_date.strftime('%H:%M')} UTC. I'll escalate alerts if you miss it!", reply_markup=kb)
 
     elif intent == "greeting":
         name = user_info.get("first_name", "friend")
@@ -1217,9 +1264,13 @@ async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await safe_send(update, msg, reply_markup=kb)
         return
     query = parts[1].lower().strip()
-    info = format_place_info(query, city)
-    if info:
-        await safe_send(update, info, reply_markup=kb)
+    # Zero-Click Map Guide — show download + how-to-use
+    if query in ("guide", "help", "apps", "download"):
+        await safe_send(update, format_map_guide(), reply_markup=kb)
+        return
+    msg, venue = format_place_info(query, city)
+    if msg:
+        await safe_send(update, msg, reply_markup=kb)
         return
     korean_q = translate_to_korean(query)
     korean_override = korean_q if korean_q.lower() != query.lower() else None
@@ -1243,6 +1294,34 @@ async def cmd_emergency(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "💡 Save 112, 119, 1345 in your phone RIGHT NOW"
     )
     await safe_send(update, msg, reply_markup=nav_keyboard())
+
+
+async def cmd_speak(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Open the AI Korean Speaker MiniApp (Negotiator)."""
+    negotiator_url = os.getenv("NEGOTIATOR_URL", "")
+    if not negotiator_url:
+        await safe_send(update, "⚠️ AI Speaker URL not configured. Set NEGOTIATOR_URL in .env", reply_markup=main_keyboard())
+        return
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🤝 Open AI Korean Speaker", web_app=WebAppInfo(url=negotiator_url))]
+    ])
+    msg = (
+        "🤝 AI Korean Speaker\n\n"
+        "AI speaks Korean FOR YOU in real-time!\n\n"
+        "📱 How it works:\n"
+        "1. Pick a situation (market, pharmacy, restaurant...)\n"
+        "2. Describe your goal\n"
+        "3. AI speaks Korean to the person for you\n"
+        "4. Record their response → AI translates + responds\n\n"
+        "Features:\n"
+        "• 🎙️ Real-time voice translation\n"
+        "• 🤫 Whisper secret instructions to AI\n"
+        "• 🚨 SOS fake bail-out button\n"
+        "• 📊 Post-session analysis + score\n"
+        "• 🧠 Survival vocab extraction\n\n"
+        "Tap below to start 👇"
+    )
+    await safe_send(update, msg, reply_markup=kb)
 
 
 async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1389,7 +1468,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_state = get_state(user_id)
     if current_state != State.IDLE:
         # Check if user is switching context (rapid intent change)
-        intent_result = await route_intent(text, user_info)
+        intent_result = await route_intent(text, user_info, current_state=current_state)
+        
+        # If the user is just continuing the state, skip override checks
+        if intent_result["intent"] == "state_continue":
+            log_message_time(user_id)
+            analyze_message(user_id, text)
+            await _handle_active_state(update, context, user_id, user_info, text, current_state)
+            return
+
         if should_override(user_id, intent_result["intent"], intent_result["confidence"]):
             # User switched context — exit old state, execute new intent
             clear_state(user_id)
@@ -1405,7 +1492,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 4. LLM Intent Router (replaces keyword matching)
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-    intent_result = await route_intent(text, user_info)
+    intent_result = await route_intent(text, user_info, current_state="IDLE")
 
     # 5. Execute the classified intent
     log_message_time(user_id)
@@ -2148,6 +2235,7 @@ def main():
         ("track", cmd_track), ("buddy", cmd_buddy), ("sos", cmd_sos),
         ("visa", cmd_visa), ("simulate", cmd_simulate), ("interpret", cmd_interpret),
         ("apps", cmd_apps), ("hack", cmd_hack), ("level", cmd_level),
+        ("speak", cmd_speak),
     ]:
         app.add_handler(CommandHandler(name, handler))
 
@@ -2164,30 +2252,54 @@ def main():
 
     app.add_error_handler(handle_error)
 
-    # ── Keep-Alive Server (Hugging Face ke liye) ──────────────────────────────
-    # HF Spaces port 7860 par HTTP traffic dekhta hai.
-    # Agar 48 ghante tak koi traffic nahi aata to Space so jaata hai.
-    # Ye dummy server chalata hai taaki UptimeRobot / Cron-job.org
-    # har 15 min ping kar sake aur bot kabhi na soye.
-    def _keep_alive():
-        """Simple HTTP server to keep the cloud container awake via UptimeRobot."""
-        class RequestHandler(http.server.SimpleHTTPRequestHandler):
+    # ── Negotiator Server (runs FastAPI on PORT for Render + MiniApp) ──────────
+    # Serves the AI Korean Speaker MiniApp.
+    # Also acts as keep-alive for Render (responds to HTTP health checks).
+    def _start_negotiator_server():
+        """Run negotiator FastAPI on PORT. Serves MiniApp + keeps Render alive."""
+        import sys
+        negotiator_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'negotiator')
+        if os.path.isdir(negotiator_dir):
+            sys.path.insert(0, negotiator_dir)
+            try:
+                import uvicorn
+                from main import app as negotiator_app
+                port = int(os.getenv("PORT", 10000))
+                logger.info("Starting Negotiator MiniApp on port %d", port)
+                uvicorn.run(negotiator_app, host="0.0.0.0", port=port, log_level="warning")
+            except Exception as e:
+                logger.error("Negotiator server failed: %s — falling back to simple keep-alive", e)
+                _simple_keepalive()
+        else:
+            logger.warning("negotiator/ folder not found — using simple keep-alive")
+            _simple_keepalive()
+
+    def _simple_keepalive():
+        """Fallback HTTP server if negotiator can't start."""
+        class H(http.server.SimpleHTTPRequestHandler):
             def do_GET(self):
                 self.send_response(200)
                 self.send_header("Content-type", "text/plain")
                 self.end_headers()
-                self.wfile.write(b"K-Transition OS is running on Render!")
-        
-        port = int(os.getenv("PORT", 7860))
-        handler = RequestHandler
+                self.wfile.write(b"K-Transition OS v6.0 is running!")
+            def log_message(self, *a): pass
+        port = int(os.getenv("PORT", 10000))
         socketserver.TCPServer.allow_reuse_address = True
-        with socketserver.TCPServer(("", port), handler) as httpd:
-            logger.info("Keep-alive server running on port %d", port)
+        with socketserver.TCPServer(("", port), H) as httpd:
+            logger.info("Keep-alive server on port %d", port)
             httpd.serve_forever()
 
-    threading.Thread(target=_keep_alive, daemon=True).start()
+    threading.Thread(target=_start_negotiator_server, daemon=True).start()
 
     logger.info("Bot running! Press CTRL+C to stop.")
+    
+    # Python 3.12+ / 3.14 requires an active event loop before run_polling
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
     app.run_polling(drop_pending_updates=True)
 
 

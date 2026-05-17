@@ -142,6 +142,12 @@ def setup(db_path=None):
 
         # NOTE: user_levels table removed — XP is managed solely by level_system.py (user_xp table)
 
+        # Add affection score dynamically if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN affection_score INTEGER DEFAULT 0")
+        except Exception:
+            pass  # Column already exists
+
         conn.commit()
     logger.info("Database ready at %s", DB_FILE)
 
@@ -223,6 +229,17 @@ def set_arrival_date(user_id, date_str):
 def set_onboarding_step(user_id, step):
     update_user(user_id, onboarding_step=step)
 
+def get_affection(user_id):
+    user = get_user(user_id)
+    return user.get("affection_score", 0) if user else 0
+
+def update_affection(user_id, amount):
+    """Add or subtract affection score. Bounded between -100 and 100."""
+    current = get_affection(user_id)
+    new_score = max(-100, min(100, current + amount))
+    update_user(user_id, affection_score=new_score)
+    return new_score
+
 
 # ── Conversation History ───────────────────────────────────────────────────────
 
@@ -233,8 +250,8 @@ def save_message(user_id, role, content):
             (user_id, role, str(content)[:2000], datetime.now(UTC).isoformat())
         )
         conn.execute(
-            """DELETE FROM chat_history WHERE user_id = ? AND id NOT IN (
-               SELECT id FROM chat_history WHERE user_id = ?
+            """DELETE FROM chat_history WHERE user_id = ? AND role IN ('user', 'assistant') AND id NOT IN (
+               SELECT id FROM chat_history WHERE user_id = ? AND role IN ('user', 'assistant')
                ORDER BY id DESC LIMIT ?)""",
             (user_id, user_id, MAX_HISTORY_LENGTH)
         )
@@ -246,11 +263,42 @@ def get_history(user_id, limit=20):
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT role, content FROM chat_history
-               WHERE user_id = ? ORDER BY id DESC LIMIT ?""",
+               WHERE user_id = ? AND role IN ('user', 'assistant') ORDER BY id DESC LIMIT ?""",
             (user_id, limit)
         ).fetchall()
     # Reverse so oldest first (correct order for AI)
     return [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
+
+
+def save_buddy_message(user_id, role, content):
+    """Save buddy conversation separately to avoid OS AI confusion."""
+    buddy_role = f"buddy_{role}"
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO chat_history (user_id, role, content, timestamp) VALUES (?, ?, ?, ?)",
+            (user_id, buddy_role, str(content)[:2000], datetime.now(UTC).isoformat())
+        )
+        conn.execute(
+            """DELETE FROM chat_history WHERE user_id = ? AND role LIKE 'buddy_%' AND id NOT IN (
+               SELECT id FROM chat_history WHERE user_id = ? AND role LIKE 'buddy_%'
+               ORDER BY id DESC LIMIT ?)""",
+            (user_id, user_id, MAX_HISTORY_LENGTH)
+        )
+        conn.commit()
+
+
+def get_buddy_history(user_id, limit=20):
+    """Get only the buddy conversation history."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT role, content FROM chat_history
+               WHERE user_id = ? AND role LIKE 'buddy_%' ORDER BY id DESC LIMIT ?""",
+            (user_id, limit)
+        ).fetchall()
+    return [
+        {"role": "user" if r["role"] == "buddy_user" else "assistant", "content": r["content"]}
+        for r in reversed(rows)
+    ]
 
 
 def clear_history(user_id):

@@ -1,828 +1,1755 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>K-Transition OS — Voice Assistant</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>K-Transition OS</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0d0d0d; --surface: #1a1a1a; --card: #222; --border: #333;
-      --accent: #4f8cff; --accent2: #7c5cff; --green: #22c55e;
-      --red: #ef4444; --yellow: #f59e0b; --text: #f0f0f0; --muted: #888;
-      --radius: 14px; --radius-sm: 8px;
+      --bg:       #0d0d0d;
+      --surface:  #1a1a1a;
+      --card:     #222;
+      --border:   #333;
+      --accent:   #4f8cff;
+      --accent2:  #7c5cff;
+      --green:    #22c55e;
+      --red:      #ef4444;
+      --yellow:   #f59e0b;
+      --orange:   #fb923c;
+      --text:     #f0f0f0;
+      --muted:    #888;
+      --radius:   14px;
+      --radius-sm:8px;
     }
 
     body {
-      background: var(--bg); color: var(--text);
+      background: var(--bg);
+      color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 15px; min-height: 100dvh;
-      display: flex; flex-direction: column; overflow-x: hidden;
+      font-size: 15px;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
     }
 
-    /* Header */
+    /* ── Header ───────────────────────────────────────────── */
     .header {
-      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
       border-bottom: 1px solid var(--border);
-      padding: 14px 18px 12px;
-      display: flex; align-items: center; gap: 10px;
-      position: sticky; top: 0; z-index: 10;
+      padding: 12px 14px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
-    .header-icon { font-size: 22px; }
+    .header-icon { font-size: 20px; }
     .header-text { flex: 1; }
     .header-title {
-      font-size: 17px; font-weight: 700;
+      font-size: 16px;
+      font-weight: 700;
       background: linear-gradient(90deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text; background-clip: text;
+      -webkit-background-clip: text;
+      background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .header-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
-    .reset-btn {
-      background: var(--card); border: 1px solid var(--border); color: var(--muted);
-      border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer;
-    }
-    .reset-btn:hover { color: var(--text); border-color: var(--accent); }
+    .header-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
 
-    /* Screens */
+    .hdr-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all .2s;
+      font-family: inherit;
+    }
+    .hdr-btn:hover { color: var(--text); border-color: var(--accent); }
+    .hdr-btn.sos   { border-color: var(--red); color: var(--red); }
+    .hdr-btn.sos:hover { background: rgba(239,68,68,.1); }
+    .hdr-btn.history { border-color: var(--accent2); color: var(--accent2); }
+    .hdr-btn.history:hover { background: rgba(124,92,255,.1); }
+
+    /* ── Screens ──────────────────────────────────────────── */
     .screen { display: none; flex-direction: column; flex: 1; }
     .screen.active { display: flex; }
 
-    /* ── Setup Screen ── */
-    #setup-screen { padding: 20px 16px; gap: 16px; overflow-y: auto; }
+    /* ── Setup Screen ─────────────────────────────────────── */
+    #setup-screen { padding: 20px 16px; gap: 14px; overflow-y: auto; }
 
     .setup-intro {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 16px; text-align: center;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      text-align: center;
     }
-    .setup-intro h2 { font-size: 16px; margin-bottom: 6px; }
-    .setup-intro p  { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .setup-intro h2 { font-size: 15px; margin-bottom: 5px; }
+    .setup-intro p  { font-size: 12px; color: var(--muted); line-height: 1.5; }
 
     .section-label {
-      font-size: 12px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.8px; color: var(--muted); padding: 0 2px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      padding: 0 2px;
     }
 
-    .presets-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    /* Photo-to-mission banner */
+    .photo-mission-btn {
+      background: linear-gradient(135deg, #1a2e1a, #1e2a1a);
+      border: 1.5px dashed var(--green);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all .2s;
+      color: var(--text);
+      font-family: inherit;
+      width: 100%;
+      text-align: left;
+    }
+    .photo-mission-btn:active { background: rgba(34,197,94,.1); }
+    .photo-mission-icon { font-size: 28px; flex-shrink: 0; }
+    .photo-mission-text { flex: 1; }
+    .photo-mission-title { font-size: 13px; font-weight: 700; color: var(--green); }
+    .photo-mission-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+    #photo-input { display: none; }
+
+    .photo-analyzing {
+      background: rgba(34,197,94,.08);
+      border: 1px solid var(--green);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--green);
+      text-align: center;
+      display: none;
+    }
+
+    .presets-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
     .preset-btn {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 14px 10px;
-      text-align: center; cursor: pointer; transition: all .2s;
-      display: flex; flex-direction: column; gap: 6px; align-items: center;
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+      font-family: inherit;
     }
     .preset-btn:active, .preset-btn.selected {
-      border-color: var(--accent); background: #1e2a40;
+      border-color: var(--accent);
+      background: #1e2a40;
     }
-    .preset-icon { font-size: 24px; }
-    .preset-label { font-size: 12px; font-weight: 600; line-height: 1.3; }
-    .preset-sub   { font-size: 10px; color: var(--muted); line-height: 1.3; }
+    .preset-icon  { font-size: 22px; }
+    .preset-label { font-size: 11px; font-weight: 700; line-height: 1.3; }
+    .preset-sub   { font-size: 9px; color: var(--muted); line-height: 1.3; }
 
-    /* Goal input with mic button */
-    .goal-input-wrap { display: flex; flex-direction: column; gap: 8px; }
-    .goal-input-row  { display: flex; gap: 8px; align-items: flex-end; }
-
+    .goal-input-wrap { display: flex; flex-direction: column; gap: 8px; position: relative; }
     .goal-input {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius-sm); color: var(--text);
-      font-size: 14px; padding: 12px 14px; resize: none;
-      flex: 1; line-height: 1.4; transition: border-color .2s; font-family: inherit;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 14px;
+      padding: 12px 44px 12px 14px;
+      resize: none;
+      width: 100%;
+      line-height: 1.4;
+      transition: border-color .2s;
+      font-family: inherit;
     }
     .goal-input:focus { outline: none; border-color: var(--accent); }
-
-    /* Mic button next to goal input (Negotiator Change 4) */
-    .goal-mic-btn {
-      width: 44px; height: 44px; border-radius: 50%;
-      border: 1px solid var(--border); background: var(--card);
-      color: var(--muted); font-size: 18px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; transition: all .2s;
+    .dictate-btn {
+      position: absolute;
+      right: 8px;
+      bottom: 12px;
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--muted);
+      transition: color .2s;
+      padding: 4px;
     }
-    .goal-mic-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .goal-mic-btn.recording { background: var(--red); border-color: var(--red); color: #fff; animation: pulse 1s infinite; }
-
-    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.6; } }
+    .dictate-btn:hover { color: var(--accent); }
 
     .start-btn {
       background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border: none; border-radius: var(--radius); color: #fff;
-      font-size: 16px; font-weight: 700; padding: 15px; cursor: pointer;
-      width: 100%; transition: opacity .2s;
+      border: none;
+      border-radius: var(--radius);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 14px;
+      cursor: pointer;
+      width: 100%;
+      transition: opacity .2s;
+      letter-spacing: 0.3px;
+      font-family: inherit;
     }
-    .start-btn:hover { opacity: 0.9; }
-    .start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .start-btn:active { opacity: 0.85; }
+    .start-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-    /* ── Active Session Screen ── */
+    /* ── Briefing Modal ───────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.75);
+      z-index: 200;
+      display: flex;
+      align-items: flex-end;
+      padding: 16px;
+      animation: fadeIn .2s ease;
+    }
+    @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+    .modal-overlay.hidden { display: none; }
+
+    .briefing-card {
+      background: linear-gradient(135deg, #1a2e1a, #1e3520);
+      border: 1.5px solid var(--green);
+      border-radius: var(--radius);
+      padding: 20px;
+      width: 100%;
+      animation: slideUp .3s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(30px); opacity:0 } to { transform: translateY(0); opacity:1 } }
+
+    .briefing-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .briefing-header-icon { font-size: 24px; }
+    .briefing-header-text h3 { font-size: 14px; font-weight: 700; color: var(--green); }
+    .briefing-header-text p  { font-size: 11px; color: var(--muted); }
+
+    .briefing-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+      margin-bottom: 14px;
+    }
+
+    .briefing-phrase {
+      background: rgba(34,197,94,.1);
+      border: 1px solid rgba(34,197,94,.3);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+    }
+    .briefing-phrase-label { font-size: 10px; color: var(--green); font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+    .briefing-phrase-kr    { font-size: 18px; font-weight: 700; color: var(--text); }
+    .briefing-phrase-rom   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .briefing-phrase-en    { font-size: 11px; color: var(--green); margin-top: 2px; }
+
+    .briefing-start-btn {
+      background: var(--green);
+      border: none;
+      border-radius: 10px;
+      color: #000;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 12px;
+      cursor: pointer;
+      width: 100%;
+      font-family: inherit;
+      transition: opacity .15s;
+    }
+    .briefing-start-btn:active { opacity: 0.8; }
+
+    /* ── Session Screen ───────────────────────────────────── */
     #session-screen { padding: 0; flex: 1; overflow: hidden; }
     .session-inner {
-      display: flex; flex-direction: column; height: 100%;
-      padding: 14px 16px 20px; gap: 12px;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 10px 12px 12px;
+      gap: 8px;
     }
 
     /* Status bar */
     .status-bar {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius-sm); padding: 10px 14px;
-      display: flex; align-items: center; gap: 8px;
-    }
-    .status-dot {
-      width: 8px; height: 8px; border-radius: 50%; background: var(--muted);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      font-size: 12px;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       flex-shrink: 0;
     }
-    .status-dot.active  { background: var(--green); animation: pulse 1.2s infinite; }
-    .status-dot.waiting { background: var(--yellow); }
-    .status-dot.error   { background: var(--red); }
-    .status-text { font-size: 13px; color: var(--muted); flex: 1; }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+      transition: background .3s;
+    }
+    .status-dot.green  { background: var(--green); }
+    .status-dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+    .status-dot.blue   { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+    .status-dot.red    { background: var(--red); box-shadow: 0 0 6px var(--red); }
 
-    /* Conversation feed */
-    .conv-feed {
-      flex: 1; overflow-y: auto; display: flex; flex-direction: column;
-      gap: 10px; padding-right: 2px;
+    /* ── Emotion / Tension Detector ───────────────────────── */
+    .emotion-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      display: none;
+      gap: 0;
+      flex-shrink: 0;
     }
-    .conv-feed::-webkit-scrollbar { width: 4px; }
-    .conv-feed::-webkit-scrollbar-track { background: transparent; }
-    .conv-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .emotion-panel.visible { display: flex; }
+    .emotion-row { display: flex; gap: 6px; align-items: stretch; }
+    .em-item {
+      flex: 1;
+      background: var(--surface);
+      border-radius: 6px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .em-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+    .em-value { font-size: 12px; font-weight: 700; color: var(--text); }
+    .em-value.friendly { color: var(--green); }
+    .em-value.neutral  { color: var(--yellow); }
+    .em-value.annoyed  { color: var(--red); }
+    .em-value.busy     { color: var(--orange); }
+    .em-value.uncertain{ color: var(--muted); }
+    .em-deal-bar {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+    .em-deal-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--red), var(--yellow), var(--green));
+      border-radius: 2px;
+      transition: width .5s ease;
+    }
+    .em-next { font-size: 10px; color: #a0c0ff; line-height: 1.3; }
+    .em-next-wrap { flex: 2; }
 
-    .conv-item {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 12px 14px;
+    /* ── Phrase Cheatsheet ────────────────────────────────── */
+    .phrase-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      flex-shrink: 0;
+      overflow: hidden;
+      transition: max-height .3s ease;
+      max-height: 32px;
     }
-    .conv-item.ai-item   { border-left: 3px solid var(--accent); }
-    .conv-item.user-item { border-left: 3px solid var(--green); }
-    .conv-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
-    .conv-text  { font-size: 14px; line-height: 1.5; }
-    .conv-action {
-      margin-top: 6px; font-size: 11px;
-      padding: 3px 8px; border-radius: 4px; display: inline-block; font-weight: 600;
-    }
-    .action-speak    { background: #1e2a40; color: var(--accent); }
-    .action-consult  { background: #2a2010; color: var(--yellow); }
-    .action-deal     { background: #102a10; color: var(--green); }
-    .action-task     { background: #102a10; color: var(--green); }
+    .phrase-panel.expanded { max-height: 220px; }
 
-    /* HITL buttons */
-    .hitl-panel {
-      background: var(--surface); border: 1px solid var(--yellow);
-      border-radius: var(--radius); padding: 14px; display: flex;
-      flex-direction: column; gap: 8px;
+    .phrase-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 12px;
+      cursor: pointer;
+      user-select: none;
     }
-    .hitl-title {
-      font-size: 12px; color: var(--yellow); font-weight: 600; text-align: center;
+    .phrase-header-left { display: flex; align-items: center; gap: 6px; }
+    .phrase-header-label { font-size: 11px; font-weight: 600; color: var(--accent); }
+    .phrase-chevron { font-size: 10px; color: var(--muted); transition: transform .3s; }
+    .phrase-panel.expanded .phrase-chevron { transform: rotate(180deg); }
+
+    .phrase-list {
+      padding: 0 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
-    .hitl-buttons { display: flex; flex-direction: column; gap: 8px; }
+    .phrase-item {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      background: var(--surface);
+    }
+    .phrase-kr  { font-size: 13px; font-weight: 700; color: #a8c4ff; white-space: nowrap; }
+    .phrase-rom { font-size: 10px; color: var(--muted); flex: 1; }
+    .phrase-en  { font-size: 10px; color: var(--green); white-space: nowrap; }
+
+    /* ── Conversation Log ─────────────────────────────────── */
+    .conv-log {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding-right: 2px;
+    }
+    .conv-log::-webkit-scrollbar { width: 3px; }
+    .conv-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .msg {
+      border-radius: var(--radius-sm);
+      padding: 8px 11px;
+      font-size: 13px;
+      line-height: 1.5;
+      max-width: 94%;
+      animation: fadeUp .2s ease;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .msg-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+      opacity: 0.55;
+    }
+    .msg-ai-korean {
+      background: linear-gradient(135deg, #1e2a40, #1a2035);
+      border: 1px solid #2a3a5e;
+      color: #a8c4ff;
+      align-self: flex-start;
+      font-size: 14px;
+    }
+    .msg-ai-english {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 11px;
+      align-self: flex-start;
+      font-style: italic;
+    }
+    .msg-local {
+      background: #1e2a1e;
+      border: 1px solid #2a4a2a;
+      color: #8fcf8f;
+      align-self: flex-end;
+    }
+    .msg-system {
+      background: transparent;
+      border: 1px dashed var(--border);
+      color: var(--muted);
+      font-size: 10px;
+      align-self: center;
+      text-align: center;
+      max-width: 100%;
+      padding: 5px 12px;
+    }
+
+    /* HITL decision card */
+    .hitl-card {
+      background: var(--card);
+      border: 1px solid var(--yellow);
+      border-radius: var(--radius);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      animation: fadeUp .25s ease;
+      flex-shrink: 0;
+    }
+    .hitl-message { font-size: 12px; color: var(--yellow); font-weight: 600; }
+    .hitl-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
     .hitl-btn {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius-sm); color: var(--text);
-      font-size: 14px; font-weight: 500; padding: 12px;
-      cursor: pointer; text-align: center; transition: all .2s;
+      flex: 1;
+      min-width: 80px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 12px;
+      padding: 9px 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all .15s;
+      font-family: inherit;
     }
-    .hitl-btn:hover { border-color: var(--accent); background: #1e2a40; }
+    .hitl-btn:active { background: #1e2a40; border-color: var(--accent); color: var(--accent); }
 
-    /* Controls */
-    .controls { display: flex; gap: 10px; align-items: center; }
+    /* ── Mic Area ─────────────────────────────────────────── */
+    .mic-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .mic-hint { font-size: 10px; color: var(--muted); text-align: center; }
+    .mic-wrapper { display: flex; gap: 14px; align-items: center; }
 
     .mic-btn {
-      flex: 1; height: 56px; border-radius: var(--radius);
-      border: 2px solid var(--border); background: var(--card);
-      color: var(--text); font-size: 20px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      transition: all .2s; font-weight: 600; font-family: inherit;
+      width: 70px; height: 70px;
+      border-radius: 50%;
+      border: 3px solid var(--accent);
+      background: var(--card);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      transition: all .15s;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
     .mic-btn.recording {
-      background: var(--red); border-color: var(--red); animation: pulse 1s infinite;
+      background: var(--red);
+      border-color: var(--red);
+      transform: scale(1.1);
+      box-shadow: 0 0 24px rgba(239,68,68,.5);
+      animation: pulse 1s infinite;
     }
-    .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 24px rgba(239,68,68,.5); }
+      50%      { box-shadow: 0 0 36px rgba(239,68,68,.8); }
+    }
+    .mic-btn.disabled { opacity: 0.3; cursor: not-allowed; border-color: var(--muted); }
 
-    .modify-btn {
-      height: 56px; padding: 0 16px; border-radius: var(--radius);
-      border: 1px solid var(--border); background: var(--card); color: var(--muted);
-      font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+    .whisper-btn {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      border: 2px solid var(--yellow);
+      background: var(--card);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      transition: all .15s;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .whisper-btn.recording {
+      background: var(--yellow); border-color: var(--yellow);
+      transform: scale(1.08);
+      box-shadow: 0 0 20px rgba(245,158,11,.5);
+    }
+    .whisper-btn.disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .finish-btn {
+      background: transparent;
+      border: 1px solid var(--green);
+      border-radius: var(--radius-sm);
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 16px;
+      cursor: pointer;
+      width: 100%;
       font-family: inherit;
+      transition: all .2s;
     }
-    .modify-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .finish-btn:active { background: rgba(34,197,94,.1); }
 
-    /* Goal tag */
-    .goal-tag {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius-sm); padding: 8px 12px;
-      font-size: 12px; color: var(--muted); line-height: 1.4;
+    /* ── Done Screen ──────────────────────────────────────── */
+    #done-screen {
+      padding: 20px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
     }
-    .goal-tag strong { color: var(--text); }
+    .done-header { text-align: center; padding: 10px 0; }
+    .done-icon  { font-size: 52px; display: block; margin-bottom: 8px; }
+    .done-title { font-size: 20px; font-weight: 700; }
+    .done-sub   { font-size: 13px; color: var(--muted); line-height: 1.5; margin-top: 4px; }
 
-    /* Modify goal modal */
-    .modal-overlay {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,.7); z-index: 100; align-items: center; justify-content: center;
+    /* Score card */
+    .score-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: none;
     }
-    .modal-overlay.open { display: flex; }
-    .modal {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 20px; width: calc(100% - 32px); max-width: 400px;
+    .score-card.visible { display: block; }
+    .score-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .score-circle {
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-weight: 700; flex-shrink: 0;
+      border: 3px solid;
     }
-    .modal h3  { font-size: 15px; margin-bottom: 12px; }
-    .modal input {
-      width: 100%; background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius-sm); color: var(--text); font-size: 14px;
-      padding: 12px; margin-bottom: 12px; font-family: inherit;
+    .score-circle .s-num { font-size: 18px; line-height: 1; }
+    .score-circle .s-grade { font-size: 10px; opacity: 0.8; }
+    .score-circle.grade-A { border-color: var(--green); color: var(--green); }
+    .score-circle.grade-B { border-color: #60a5fa; color: #60a5fa; }
+    .score-circle.grade-C { border-color: var(--yellow); color: var(--yellow); }
+    .score-circle.grade-D { border-color: var(--orange); color: var(--orange); }
+    .score-circle.grade-F { border-color: var(--red); color: var(--red); }
+    .score-summary { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+    .score-section { margin-bottom: 10px; }
+    .score-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 4px; }
+    .score-section-text  { font-size: 13px; line-height: 1.5; }
+    .score-section-text.positive { color: var(--green); }
+    .score-section-text.improve  { color: var(--yellow); }
+
+    .timeline-list { display: flex; flex-direction: column; gap: 4px; }
+    .timeline-item {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: 11px; color: var(--muted);
     }
-    .modal input:focus { outline: none; border-color: var(--accent); }
-    .modal-btns { display: flex; gap: 8px; }
-    .modal-btns button {
-      flex: 1; padding: 10px; border-radius: var(--radius-sm);
-      border: 1px solid var(--border); font-size: 14px; cursor: pointer;
+    .tl-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-top: 4px; flex-shrink: 0; }
+    .tl-label { line-height: 1.4; }
+
+    /* Vocab card */
+    .vocab-card {
+      background: var(--card);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+    .vocab-title { font-size: 11px; color: var(--accent); font-weight: 700; margin-bottom: 10px; text-transform: uppercase; text-align: center; }
+    .vocab-item  { padding: 7px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 10px; }
+    .vocab-item:last-child { border-bottom: none; }
+    .vocab-kr    { font-weight: 700; color: var(--text); font-size: 14px; }
+    .vocab-en    { color: var(--muted); font-size: 11px; text-align: right; flex: 1; }
+
+    .done-actions { display: flex; gap: 8px; }
+    .new-btn {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 14px;
+      padding: 12px;
+      cursor: pointer;
       font-family: inherit;
+      font-weight: 600;
+      text-align: center;
     }
-    .modal-confirm { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-    .modal-cancel  { background: var(--card); color: var(--muted); }
-
-    /* ── Done/Summary Screen ── */
-    #done-screen { padding: 24px 16px; gap: 16px; align-items: center; justify-content: center; }
-    .done-icon { font-size: 56px; text-align: center; }
-    .done-title { font-size: 22px; font-weight: 700; text-align: center; }
-    .done-summary {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 16px; font-size: 14px;
-      line-height: 1.6; width: 100%; max-width: 380px; color: var(--text);
-    }
-    .done-summary-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; }
-    .done-new-btn {
+    .new-btn:active { border-color: var(--accent); color: var(--accent); }
+    .new-btn.primary {
       background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border: none; border-radius: var(--radius); color: #fff;
-      font-size: 15px; font-weight: 700; padding: 14px 32px; cursor: pointer;
+      border-color: transparent;
+      color: #fff;
     }
-    .countdown { font-size: 12px; color: var(--muted); }
+
+    /* ── Session History Modal ────────────────────────────── */
+    .history-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.8);
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+    }
+    .history-modal.hidden { display: none; }
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .history-header h2 { font-size: 16px; font-weight: 700; }
+    .history-close {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+    }
+    .history-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+    .history-empty { text-align: center; color: var(--muted); font-size: 14px; padding: 40px 0; }
+
+    .history-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: border-color .15s;
+    }
+    .history-item:active { border-color: var(--accent2); }
+    .history-item-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .history-item-date   { font-size: 10px; color: var(--muted); }
+    .history-item-score  { font-size: 11px; font-weight: 700; }
+    .history-item-goal   { font-size: 12px; color: var(--text); line-height: 1.4; margin-bottom: 4px; }
+    .history-item-meta   { font-size: 10px; color: var(--muted); }
+    .history-item-vocab  { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+    .vocab-chip {
+      background: rgba(79,140,255,.1);
+      border: 1px solid rgba(79,140,255,.2);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 10px;
+      color: var(--accent);
+    }
+
+    .history-clear-btn {
+      background: transparent;
+      border: 1px solid var(--red);
+      border-radius: 8px;
+      color: var(--red);
+      font-size: 12px;
+      padding: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
 
-<!-- Header -->
+<!-- ── Header ─────────────────────────────────────────────── -->
 <header class="header">
-  <div class="header-icon">🇰🇷</div>
+  <span class="header-icon">🤝</span>
   <div class="header-text">
     <div class="header-title">K-Transition OS</div>
-    <div class="header-sub">Voice Assistant</div>
+    <div class="header-sub">AI speaks Korean for you</div>
   </div>
-  <button class="reset-btn" onclick="resetToSetup()">↩ Reset</button>
+  <button class="hdr-btn history" onclick="showHistory()" title="Past sessions">📜 History</button>
+  <button class="hdr-btn sos"     onclick="sendSOS()"       title="Emergency exit">🚨 SOS</button>
+  <button class="hdr-btn"         onclick="resetSession()">Reset</button>
 </header>
 
-<!-- ── Setup Screen ── -->
+<!-- ── Setup Screen ───────────────────────────────────────── -->
 <div class="screen active" id="setup-screen">
+  <div style="padding:16px; display:flex; flex-direction:column; gap:14px; overflow-y:auto; flex:1;">
 
-  <div class="setup-intro">
-    <h2>🎙️ Korean Voice Assistant</h2>
-    <p>Your AI speaks Korean <em>for you</em>. Choose a scenario and press Start.</p>
+    <div class="setup-intro">
+      <h2>AI speaks Korean for you 🇰🇷</h2>
+      <p>Pick a situation, describe your goal, or<br>snap a photo of any sign/menu to auto-detect.</p>
+    </div>
+
+    <!-- 📸 Photo-to-Mission -->
+    <button class="photo-mission-btn" onclick="document.getElementById('photo-input').click()">
+      <span class="photo-mission-icon">📸</span>
+      <div class="photo-mission-text">
+        <div class="photo-mission-title">Photo → Auto Goal</div>
+        <div class="photo-mission-sub">Point at any sign, menu, or price tag — AI detects your goal automatically</div>
+      </div>
+      <span style="font-size:18px; color:var(--muted)">›</span>
+    </button>
+    <input type="file" id="photo-input" accept="image/*" capture="environment" onchange="handlePhotoUpload(event)" />
+    <div class="photo-analyzing" id="photo-analyzing">🔍 Analysing photo with Llama 4 Scout vision…</div>
+
+    <span class="section-label">Pick Your Situation</span>
+    <div class="presets-grid">
+      <button class="preset-btn" onclick="selectPreset(this,'bargain',
+        'Negotiate the best price at a Korean market stall or shop. The asking price is on the item. Push for at least 20-30% off using student budget and cash payment as leverage. Stop if refused more than twice and consult the student.')">
+        <span class="preset-icon">🛒</span>
+        <span class="preset-label">Market Bargain</span>
+        <span class="preset-sub">Push for 20-30% off</span>
+      </button>
+      <button class="preset-btn" onclick="selectPreset(this,'directions',
+        'Ask a Korean person for walking or transit directions to a specific place. Get step-by-step instructions. Confirm each step. Ask them to slow down if needed.')">
+        <span class="preset-icon">🗺️</span>
+        <span class="preset-label">Ask Directions</span>
+        <span class="preset-sub">Step-by-step route</span>
+      </button>
+      <button class="preset-btn" onclick="selectPreset(this,'food_order',
+        'Order food at a Korean restaurant or food stall. Student has dietary restrictions (no pork, or no meat — specify in goal). Check for hidden ingredients like anchovy broth. Confirm the full order before paying.')">
+        <span class="preset-icon">🍲</span>
+        <span class="preset-label">Order Food</span>
+        <span class="preset-sub">Dietary needs handled</span>
+      </button>
+      <button class="preset-btn" onclick="selectPreset(this,'pharmacy',
+        'Explain symptoms clearly to a Korean pharmacist. Ask for the right medicine, dosage, and frequency. Ask about side effects. Confirm the medicine name.')">
+        <span class="preset-icon">💊</span>
+        <span class="preset-label">Pharmacy / Clinic</span>
+        <span class="preset-sub">Describe symptoms</span>
+      </button>
+      <button class="preset-btn" onclick="selectPreset(this,'landlord',
+        'Talk to a Korean landlord about a problem in the apartment (repair needed, deposit return, noise, etc.). Be polite but clear about the issue and ask for a timeline.')">
+        <span class="preset-icon">🏠</span>
+        <span class="preset-label">Landlord Issue</span>
+        <span class="preset-sub">Repairs, deposit, noise</span>
+      </button>
+      <button class="preset-btn" onclick="selectPreset(this,'official',
+        'Navigate a formal Korean setting: bank, immigration office, 주민센터, or university admin. Ask about required documents, process steps, and expected timeline. Be patient and formal.')">
+        <span class="preset-icon">🏦</span>
+        <span class="preset-label">Bank / Immigration</span>
+        <span class="preset-sub">Documents & process</span>
+      </button>
+      <button class="preset-btn" onclick="selectPreset(this,'transport',
+        'Get help with Korean transport: taxi, bus, subway. Confirm destinations, ask for the meter to be turned on in a taxi, or check if a bus or subway goes to the right place.')">
+        <span class="preset-icon">🚌</span>
+        <span class="preset-label">Taxi / Bus / Subway</span>
+        <span class="preset-sub">Get to the right place</span>
+      </button>
+      <button class="preset-btn" onclick="selectPreset(this,'general','Help me communicate with a Korean person.')">
+        <span class="preset-icon">💬</span>
+        <span class="preset-label">Custom / Other</span>
+        <span class="preset-sub">Type your own goal</span>
+      </button>
+    </div>
+
+    <span class="section-label">Describe Your Goal</span>
+    <div class="goal-input-wrap">
+      <textarea id="goal-input" class="goal-input" rows="3"
+        placeholder="e.g. Buy a shirt for under ₩15,000. The seller is asking ₩22,000. I'm a student and have cash."></textarea>
+      <button class="dictate-btn" id="dictate-btn" onclick="startDictation()" title="Speak your goal">🎤</button>
+    </div>
+
+    <button class="start-btn" id="start-btn" onclick="startSession()" disabled>
+      🎙️ Start — AI Will Speak Korean For You
+    </button>
+
   </div>
-
-  <div class="section-label">Choose Scenario</div>
-
-  <div class="presets-grid" id="presets">
-    <div class="preset-btn selected" data-type="bargain" onclick="selectPreset(this)">
-      <div class="preset-icon">💰</div>
-      <div class="preset-label">Price Negotiation</div>
-      <div class="preset-sub">Market, vendor, landlord</div>
-    </div>
-    <div class="preset-btn" data-type="directions" onclick="selectPreset(this)">
-      <div class="preset-icon">🗺️</div>
-      <div class="preset-label">Ask Directions</div>
-      <div class="preset-sub">Navigate anywhere</div>
-    </div>
-    <div class="preset-btn" data-type="food_order" onclick="selectPreset(this)">
-      <div class="preset-icon">🍜</div>
-      <div class="preset-label">Order Food</div>
-      <div class="preset-sub">Halal, allergies, custom</div>
-    </div>
-    <div class="preset-btn" data-type="pharmacy" onclick="selectPreset(this)">
-      <div class="preset-icon">💊</div>
-      <div class="preset-label">Pharmacy</div>
-      <div class="preset-sub">Describe symptoms</div>
-    </div>
-    <div class="preset-btn" data-type="official" onclick="selectPreset(this)">
-      <div class="preset-icon">🏛️</div>
-      <div class="preset-label">Official Office</div>
-      <div class="preset-sub">Bank, immigration, 주민센터</div>
-    </div>
-    <div class="preset-btn" data-type="general" onclick="selectPreset(this)">
-      <div class="preset-icon">💬</div>
-      <div class="preset-label">Free Conversation</div>
-      <div class="preset-sub">Any Korean situation</div>
-    </div>
-  </div>
-
-  <div class="section-label">What do you want to achieve?</div>
-
-  <div class="goal-input-wrap">
-    <div class="goal-input-row">
-      <textarea class="goal-input" id="goalInput" rows="2"
-        placeholder="e.g. Buy earrings for under 8,000 won..."></textarea>
-      <button class="goal-mic-btn" id="goalMicBtn" title="Speak your goal" onclick="toggleGoalMic()">🎤</button>
-    </div>
-  </div>
-
-  <button class="start-btn" id="startBtn" onclick="startSession()">🚀 Start Session</button>
-
 </div>
 
-<!-- ── Active Session Screen ── -->
+<!-- ── Pre-battle Briefing Modal ──────────────────────────── -->
+<div class="modal-overlay hidden" id="briefing-overlay">
+  <div class="briefing-card">
+    <div class="briefing-header">
+      <span class="briefing-header-icon">⚡</span>
+      <div class="briefing-header-text">
+        <h3>Pre-Battle Briefing</h3>
+        <p>10-second cultural tip before you begin</p>
+      </div>
+    </div>
+    <div class="briefing-text" id="briefing-text">Loading…</div>
+    <div class="briefing-phrase" id="briefing-phrase" style="display:none">
+      <div class="briefing-phrase-label">⭐ Key Phrase</div>
+      <div class="briefing-phrase-kr"  id="bp-kr"></div>
+      <div class="briefing-phrase-rom" id="bp-rom"></div>
+      <div class="briefing-phrase-en"  id="bp-en"></div>
+    </div>
+    <button class="briefing-start-btn" onclick="dismissBriefing()">
+      Got it — Let's Go! 🚀
+    </button>
+  </div>
+</div>
+
+<!-- ── Session Screen ─────────────────────────────────────── -->
 <div class="screen" id="session-screen">
   <div class="session-inner">
 
-    <div class="goal-tag">
-      <strong>Mission:</strong> <span id="activeGoal"></span>
+    <div class="status-bar" id="status-bar">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Initialising...</span>
     </div>
 
-    <div class="status-bar">
-      <div class="status-dot" id="statusDot"></div>
-      <div class="status-text" id="statusText">Connecting...</div>
+    <!-- Emotion / Tension Detector -->
+    <div class="emotion-panel" id="emotion-panel">
+      <div class="emotion-row">
+        <div class="em-item">
+          <span class="em-label">Their Mood</span>
+          <span class="em-value" id="em-mood">—</span>
+        </div>
+        <div class="em-item">
+          <span class="em-label">Deal Chance</span>
+          <span class="em-value" id="em-deal-pct">—</span>
+          <div class="em-deal-bar"><div class="em-deal-fill" id="em-deal-bar" style="width:0%"></div></div>
+        </div>
+        <div class="em-item em-next-wrap">
+          <span class="em-label">Recommended Move</span>
+          <span class="em-next" id="em-next">Waiting…</span>
+        </div>
+      </div>
     </div>
 
-    <div class="conv-feed" id="convFeed"></div>
-
-    <div class="hitl-panel" id="hitlPanel" style="display:none">
-      <div class="hitl-title">⚡ Your Decision Required</div>
-      <div class="hitl-buttons" id="hitlButtons"></div>
+    <!-- Live Phrase Cheatsheet -->
+    <div class="phrase-panel" id="phrase-panel">
+      <div class="phrase-header" onclick="togglePhrase()">
+        <div class="phrase-header-left">
+          <span>📜</span>
+          <span class="phrase-header-label">Live Phrase Guide</span>
+        </div>
+        <span class="phrase-chevron">▼</span>
+      </div>
+      <div class="phrase-list" id="phrase-list">
+        <!-- filled dynamically -->
+      </div>
     </div>
 
-    <div class="controls">
-      <button class="mic-btn" id="micBtn" onclick="toggleMic()">🎙️ Hold to Speak</button>
-      <button class="modify-btn" onclick="openModifyModal()" title="Change goal mid-session">✏️ Goal</button>
+    <div class="conv-log" id="conv-log"></div>
+
+    <div class="hitl-card" id="hitl-card" style="display:none">
+      <div class="hitl-message" id="hitl-message">Your decision:</div>
+      <div class="hitl-buttons" id="hitl-buttons"></div>
+    </div>
+
+    <div class="mic-area">
+      <span class="mic-hint" id="mic-hint">Tap 🎙️ once to START recording · tap again to STOP</span>
+      <div class="mic-wrapper">
+        <button class="mic-btn disabled" id="mic-btn"
+          ontouchend="handleMicTap(event, false)"
+          onclick="handleMicTap(event, false)"
+          title="Tap to record local's voice">🎙️</button>
+        <button class="whisper-btn disabled" id="whisper-btn"
+          ontouchend="handleMicTap(event, true)"
+          onclick="handleMicTap(event, true)"
+          title="Whisper a secret instruction">🤫</button>
+      </div>
+      <button class="finish-btn" onclick="endSessionNormally()">
+        ✅ Finish &amp; Analyse Session
+      </button>
     </div>
 
   </div>
 </div>
 
-<!-- ── Done/Summary Screen ── -->
+<!-- ── Done Screen ────────────────────────────────────────── -->
 <div class="screen" id="done-screen">
-  <div class="done-icon" id="doneIcon">✅</div>
-  <div class="done-title" id="doneTitle">Session Complete</div>
-  <div class="done-summary">
-    <div class="done-summary-label">What happened</div>
-    <div id="doneSummaryText">Loading summary...</div>
+  <div class="done-header">
+    <span class="done-icon" id="done-icon">✅</span>
+    <div class="done-title" id="done-title">Done!</div>
+    <div class="done-sub"   id="done-sub">Session complete.</div>
   </div>
-  <div class="countdown" id="doneCountdown"></div>
-  <button class="done-new-btn" onclick="resetToSetup()">+ New Session</button>
-</div>
 
-<!-- Modify Goal Modal -->
-<div class="modal-overlay" id="modifyModal">
-  <div class="modal">
-    <h3>✏️ Modify Goal</h3>
-    <input type="text" id="modifyInput" placeholder="Enter updated goal..."/>
-    <div class="modal-btns">
-      <button class="modal-cancel" onclick="closeModifyModal()">Cancel</button>
-      <button class="modal-confirm" onclick="confirmModifyGoal()">Update</button>
+  <!-- Post-deal Analysis -->
+  <div class="score-card" id="score-card">
+    <div class="score-header">
+      <div class="score-circle grade-B" id="score-circle">
+        <span class="s-num" id="s-num">—</span>
+        <span class="s-grade" id="s-grade"></span>
+      </div>
+      <div class="score-summary" id="score-summary"></div>
+    </div>
+    <div class="score-section">
+      <div class="score-section-title">✅ What went well</div>
+      <div class="score-section-text positive" id="s-well"></div>
+    </div>
+    <div class="score-section">
+      <div class="score-section-title">💡 Could improve</div>
+      <div class="score-section-text improve" id="s-improve"></div>
+    </div>
+    <div class="score-section">
+      <div class="score-section-title">📍 Key moments</div>
+      <div class="timeline-list" id="s-timeline"></div>
     </div>
   </div>
+
+  <div id="vocab-container" style="display:none;">
+    <div class="vocab-card">
+      <div class="vocab-title">🧠 Survival Vocab from This Session</div>
+      <div id="vocab-list"></div>
+    </div>
+  </div>
+
+  <div class="done-actions">
+    <button class="new-btn" onclick="resetSession()">↩ New Session</button>
+    <button class="new-btn primary" onclick="showHistory()">📜 History</button>
+  </div>
 </div>
+
+<!-- ── Session History Modal ──────────────────────────────── -->
+<div class="history-modal hidden" id="history-modal">
+  <div class="history-header">
+    <h2>📜 Session History</h2>
+    <button class="history-close" onclick="hideHistory()">✕ Close</button>
+  </div>
+  <div class="history-list" id="history-list"></div>
+  <button class="history-clear-btn" onclick="clearHistory()">🗑️ Clear All History</button>
+</div>
+
 
 <script>
-// ── State ─────────────────────────────────────────────────────────────────────
-let ws = null;
-let selectedType = "bargain";
-let mediaRecorder = null;
-let audioChunks   = [];
-let isRecording   = false;
-let goalRecorder  = null;
-let goalRecording = false;
-let sessionDone   = false;
-let countdownInterval = null;
+// ══════════════════════════════════════════════════════════════
+// K-Transition OS — Frontend v6.0
+// New: Photo-to-mission, Emotion detector, Phrase cheatsheet,
+//      Pre-battle briefing, Post-deal analyzer, Session history
+// ══════════════════════════════════════════════════════════════
 
-// ── Preset Selection ──────────────────────────────────────────────────────────
-function selectPreset(el) {
-  document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("selected"));
-  el.classList.add("selected");
-  selectedType = el.dataset.type;
+const tgApp = window.Telegram?.WebApp;
+if (tgApp) { tgApp.ready(); tgApp.expand(); }
 
-  // Update placeholder
-  const hints = {
-    bargain:    "e.g. Buy earrings for under 8,000 won",
-    directions: "e.g. Get to Hongdae from Sinchon station",
-    food_order: "e.g. Order bibimbap without meat, halal",
-    pharmacy:   "e.g. Get medicine for a headache and sore throat",
-    official:   "e.g. Ask about ARC application process at immigration",
-    general:    "e.g. Ask the café owner to turn down the music",
-  };
-  document.getElementById("goalInput").placeholder = hints[selectedType] || "Describe your goal...";
+const SERVER_URL = (() => {
+  const p = new URLSearchParams(window.location.search);
+  return (p.get('server') || window.location.origin).replace(/\/$/, '');
+})();
+const WS_URL = SERVER_URL.replace('https://', 'wss://').replace('http://', 'ws://') + '/ws/negotiate';
+
+let ws              = null;
+let selectedGoal    = '';
+let selectedType    = null;
+let isRecording     = false;
+let isWhisperMode   = false;
+let audioCtx        = null;
+let mediaStream     = null;
+let mediaRecorder   = null;
+let audioQueue      = [];
+let isPlayingAudio  = false;
+let audioSource     = null;
+let shouldKillAudio = false;
+let appState        = 'SETUP'; // SETUP | CONNECTING | BRIEFING | READY | RECORDING | HITL | DONE
+let pendingSession  = null;    // holds session data for saving to history after analysis arrives
+
+// ── UI Helpers ──────────────────────────────────────────────
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
 }
 
-// ── Goal Mic (Negotiator Change 4) ────────────────────────────────────────────
-async function toggleGoalMic() {
-  const btn = document.getElementById("goalMicBtn");
-  if (goalRecording) {
-    goalRecording = false;
-    btn.classList.remove("recording");
-    btn.textContent = "🎤";
-    if (goalRecorder && goalRecorder.state === "recording") {
-      goalRecorder.stop();
-    }
-    return;
+function setStatus(text, dotClass) {
+  const t = document.getElementById('status-text');
+  const d = document.getElementById('status-dot');
+  if (t) t.textContent = text;
+  if (d) d.className  = 'status-dot' + (dotClass ? ' ' + dotClass : '');
+}
+
+function setMicEnabled(enabled) {
+  const btn  = document.getElementById('mic-btn');
+  const wbtn = document.getElementById('whisper-btn');
+  if (!btn) return;
+  if (enabled) {
+    btn.classList.remove('disabled');
+    wbtn.classList.remove('disabled');
+    document.getElementById('mic-hint').textContent = 'Tap 🎙️ once to START · tap again to STOP';
+  } else {
+    btn.classList.add('disabled');
+    wbtn.classList.add('disabled');
+    if (isRecording) stopRecordingInternal();
   }
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    goalRecorder = new MediaRecorder(stream, { mimeType: "audio/ogg; codecs=opus" });
-    const chunks = [];
-    goalRecorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-    goalRecorder.onstop = async () => {
-      stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunks, { type: "audio/ogg" });
-      const form = new FormData();
-      form.append("file", blob, "goal.ogg");
-      btn.textContent = "⏳";
-      try {
-        const r = await fetch("/transcribe_goal", { method: "POST", body: form });
-        const data = await r.json();
-        if (data.text) {
-          document.getElementById("goalInput").value = data.text;
+}
+
+function addMsg(text, type, label) {
+  const log = document.getElementById('conv-log');
+  if (!log) return;
+  const div = document.createElement('div');
+  div.className = 'msg msg-' + type;
+  if (label) {
+    const lbl = document.createElement('div');
+    lbl.className = 'msg-label';
+    lbl.textContent = label;
+    div.appendChild(lbl);
+  }
+  const content = document.createElement('div');
+  content.textContent = text;
+  div.appendChild(content);
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function showHITL(message, buttons) {
+  const card  = document.getElementById('hitl-card');
+  const msgEl = document.getElementById('hitl-message');
+  const btns  = document.getElementById('hitl-buttons');
+  msgEl.textContent = '⚡ ' + (message || 'Your decision:');
+  btns.innerHTML = '';
+  (buttons || ['Proceed', 'Modify', 'Cancel']).forEach(label => {
+    const b = document.createElement('button');
+    b.className   = 'hitl-btn';
+    b.textContent = label;
+    b.onclick     = () => sendDecision(label);
+    btns.appendChild(b);
+  });
+  card.style.display = 'flex';
+  appState = 'HITL';
+}
+
+function hideHITL() {
+  const card = document.getElementById('hitl-card');
+  if (card) card.style.display = 'none';
+}
+
+function sendDecision(choice) {
+  hideHITL();
+  setMicEnabled(true);
+  appState = 'READY';
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ action: 'user_decision', choice }));
+  }
+  addMsg('You chose: ' + choice, 'system');
+}
+
+function sendSOS() {
+  if (ws && ws.readyState === WebSocket.OPEN && appState !== 'SETUP' && appState !== 'DONE') {
+    ws.send(JSON.stringify({ action: 'sos_bailout' }));
+  } else {
+    alert('SOS is only available during an active session.');
+  }
+}
+
+// ── 📸 Photo-to-Mission ─────────────────────────────────────
+
+async function handlePhotoUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const analyzeEl = document.getElementById('photo-analyzing');
+  analyzeEl.style.display = 'block';
+
+  // Convert to base64
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = reader.result; // includes data:image/...;base64, prefix
+
+    try {
+      const resp = await fetch(`${SERVER_URL}/analyze-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64 }),
+      });
+
+      if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+      const data = await resp.json();
+
+      if (data.goal) {
+        // Auto-fill goal
+        const goalInput = document.getElementById('goal-input');
+        goalInput.value = data.goal;
+        selectedGoal    = data.goal;
+        selectedType    = data.context_type || 'general';
+
+        // Highlight matching preset if any
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('selected'));
+        const presetMap = {
+          bargain:'bargain', food_order:'food_order', pharmacy:'pharmacy',
+          directions:'directions', transport:'transport', official:'official', landlord:'landlord'
+        };
+        if (presetMap[selectedType]) {
+          // find matching preset button by onclick attribute
+          document.querySelectorAll('.preset-btn').forEach(b => {
+            if (b.getAttribute('onclick')?.includes(`'${selectedType}'`)) {
+              b.classList.add('selected');
+            }
+          });
         }
-      } catch (e) {
-        console.error("Goal transcription error:", e);
+
+        document.getElementById('start-btn').disabled = false;
+
+        analyzeEl.textContent = data.detected_place
+          ? `✅ Detected: ${data.detected_place}. Goal auto-filled!`
+          : `✅ Goal auto-filled from photo!`;
+        analyzeEl.style.borderColor = 'var(--green)';
+        analyzeEl.style.color = 'var(--green)';
+      } else {
+        analyzeEl.textContent = '⚠️ Could not detect goal from photo. Please type it manually.';
       }
-      btn.textContent = "🎤";
-    };
-    goalRecorder.start();
-    goalRecording = true;
-    btn.classList.add("recording");
-    btn.textContent = "⏹";
-  } catch (e) {
-    alert("Microphone access denied.");
-  }
+    } catch (err) {
+      analyzeEl.textContent = '⚠️ Photo analysis failed: ' + err.message;
+    }
+  };
+  reader.readAsDataURL(file);
+  // Reset input so same file can be selected again
+  event.target.value = '';
 }
 
-// ── Session Start ─────────────────────────────────────────────────────────────
-function startSession() {
-  const goal = document.getElementById("goalInput").value.trim();
-  if (!goal) {
-    document.getElementById("goalInput").focus();
+// ── 🎯 Briefing Modal ───────────────────────────────────────
+
+function showBriefing(text, phraseKr, phraseRom, phraseEn) {
+  document.getElementById('briefing-text').textContent = text || 'Preparing your cultural briefing...';
+
+  if (phraseKr) {
+    document.getElementById('bp-kr').textContent  = phraseKr;
+    document.getElementById('bp-rom').textContent = phraseRom || '';
+    document.getElementById('bp-en').textContent  = phraseEn  || '';
+    document.getElementById('briefing-phrase').style.display = 'block';
+  }
+
+  document.getElementById('briefing-overlay').classList.remove('hidden');
+  appState = 'BRIEFING';
+}
+
+function dismissBriefing() {
+  document.getElementById('briefing-overlay').classList.add('hidden');
+  if (appState === 'BRIEFING') appState = 'READY';
+}
+
+// ── 🧠 Emotion Panel ────────────────────────────────────────
+
+function updateEmotionPanel(mood, dealChance, nextMove) {
+  const panel = document.getElementById('emotion-panel');
+  panel.classList.add('visible');
+
+  const moodEl = document.getElementById('em-mood');
+  const moodEmojis = { friendly:'😊 Friendly', neutral:'😐 Neutral', annoyed:'😤 Annoyed', busy:'⏩ Busy', uncertain:'🤔 Uncertain' };
+  moodEl.textContent = moodEmojis[mood] || mood || '—';
+  moodEl.className = 'em-value ' + (mood || 'neutral');
+
+  if (dealChance !== null && dealChance !== undefined) {
+    document.getElementById('em-deal-pct').textContent = dealChance + '%';
+    document.getElementById('em-deal-bar').style.width = dealChance + '%';
+  } else {
+    document.getElementById('em-deal-pct').textContent = '—';
+  }
+
+  if (nextMove) document.getElementById('em-next').textContent = nextMove;
+}
+
+// ── 📜 Phrase Cheatsheet ────────────────────────────────────
+
+let phraseExpanded = false;
+
+function togglePhrase() {
+  phraseExpanded = !phraseExpanded;
+  const panel = document.getElementById('phrase-panel');
+  panel.classList.toggle('expanded', phraseExpanded);
+}
+
+function updatePhraseList(phrases) {
+  const list = document.getElementById('phrase-list');
+  if (!phrases || !phrases.length) return;
+  list.innerHTML = '';
+  phrases.forEach(p => {
+    const item = document.createElement('div');
+    item.className = 'phrase-item';
+    item.innerHTML = `
+      <span class="phrase-kr">${p.kr || ''}</span>
+      <span class="phrase-rom">${p.rom || ''}</span>
+      <span class="phrase-en">${p.en || ''}</span>
+    `;
+    list.appendChild(item);
+  });
+}
+
+// ── 📊 Post-deal Done Screen ────────────────────────────────
+
+function renderDoneScreen(msg, action) {
+  const doneMap = {
+    'deal_closed':       { icon:'🤝', title:'Deal Done!',         sub:'Negotiation successful.' },
+    'task_complete':     { icon:'✅', title:'Task Complete!',      sub:'Your request was handled.' },
+    'request_fulfilled': { icon:'🎉', title:'Request Fulfilled!',  sub:'AI completed your task in Korean.' },
+    'session_ended':     {
+      icon: msg.result === 'sos_bailout' ? '🚨' : '👋',
+      title: msg.result === 'sos_bailout' ? 'Bailed Out!' : 'Session Ended',
+      sub:   msg.result === 'sos_bailout' ? 'Emergency excuse used.' : 'Session complete.',
+    },
+  };
+  const d = doneMap[action] || { icon:'✅', title:'Done!', sub:'' };
+  document.getElementById('done-icon').textContent  = d.icon;
+  document.getElementById('done-title').textContent = d.title;
+  document.getElementById('done-sub').textContent   = d.sub;
+
+  // Post-deal analysis
+  const analysis = msg.analysis;
+  if (analysis) {
+    const scoreCard = document.getElementById('score-card');
+    scoreCard.classList.add('visible');
+
+    const grade = analysis.grade || 'B';
+    const circle = document.getElementById('score-circle');
+    circle.className = `score-circle grade-${grade}`;
+    document.getElementById('s-num').textContent   = analysis.score !== undefined ? analysis.score : '—';
+    document.getElementById('s-grade').textContent = grade;
+    document.getElementById('score-summary').textContent = analysis.summary || '';
+    document.getElementById('s-well').textContent    = analysis.went_well || '';
+    document.getElementById('s-improve').textContent = analysis.improve   || '';
+
+    // Timeline
+    const tlList = document.getElementById('s-timeline');
+    tlList.innerHTML = '';
+    (analysis.timeline || []).forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'timeline-item';
+      div.innerHTML = `<div class="tl-dot"></div><div class="tl-label">${item.label || ''}</div>`;
+      tlList.appendChild(div);
+    });
+  }
+
+  // Vocab
+  if (msg.vocab && Array.isArray(msg.vocab) && msg.vocab.length > 0) {
+    const vList = document.getElementById('vocab-list');
+    vList.innerHTML = '';
+    msg.vocab.forEach(v => {
+      vList.innerHTML += `<div class="vocab-item">
+        <span class="vocab-kr">${v.korean}</span>
+        <span class="vocab-en">${v.english}</span>
+      </div>`;
+    });
+    document.getElementById('vocab-container').style.display = 'block';
+  }
+
+  // Save to history
+  saveSessionToHistory({
+    goal:     selectedGoal,
+    type:     selectedType,
+    outcome:  msg.result || action,
+    score:    analysis?.score,
+    grade:    analysis?.grade,
+    vocab:    msg.vocab,
+    duration: analysis?.duration_mins,
+  });
+}
+
+// ── 💾 Session History (localStorage) ──────────────────────
+
+const HISTORY_KEY = 'ktransition_sessions';
+
+function saveSessionToHistory(data) {
+  const sessions = loadAllSessions();
+  const entry = {
+    id:       Date.now(),
+    date:     new Date().toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }),
+    goal:     data.goal || '',
+    type:     data.type || 'general',
+    outcome:  data.outcome || '',
+    score:    data.score,
+    grade:    data.grade,
+    vocab:    data.vocab || [],
+    duration: data.duration || 0,
+  };
+  sessions.unshift(entry);
+  // Keep max 10
+  if (sessions.length > 10) sessions.splice(10);
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
+  } catch (e) { console.warn('Could not save session history:', e); }
+}
+
+function loadAllSessions() {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  } catch { return []; }
+}
+
+function showHistory() {
+  const modal  = document.getElementById('history-modal');
+  const list   = document.getElementById('history-list');
+  const sessions = loadAllSessions();
+
+  modal.classList.remove('hidden');
+  list.innerHTML = '';
+
+  if (!sessions.length) {
+    list.innerHTML = '<div class="history-empty">No sessions yet.<br>Complete a session to see it here.</div>';
     return;
   }
 
-  sessionDone = false;
-  showScreen("session-screen");
-  document.getElementById("activeGoal").textContent = goal;
-  setStatus("Connecting...", "waiting");
+  sessions.forEach(s => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
 
-  const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  connectWebSocket(goal, selectedType);
+    const gradeColor = { A:'var(--green)', B:'#60a5fa', C:'var(--yellow)', D:'var(--orange)', F:'var(--red)' }[s.grade] || 'var(--muted)';
+    const scoreHTML  = s.score !== undefined
+      ? `<span class="history-item-score" style="color:${gradeColor}">${s.grade} · ${s.score}/100</span>`
+      : '';
+
+    const vocabChips = (s.vocab || []).slice(0, 4).map(v =>
+      `<span class="vocab-chip">${v.korean}</span>`
+    ).join('');
+
+    const typeEmoji = { bargain:'🛒', food_order:'🍲', pharmacy:'💊', directions:'🗺️',
+                        transport:'🚌', official:'🏦', landlord:'🏠', general:'💬' }[s.type] || '💬';
+    const outcomeEmoji = s.outcome?.includes('sos') ? '🚨' : s.outcome?.includes('cancel') ? '❌' : '✅';
+
+    item.innerHTML = `
+      <div class="history-item-header">
+        <span class="history-item-date">${s.date}${s.duration ? ' · ' + s.duration + 'm' : ''}</span>
+        ${scoreHTML}
+      </div>
+      <div class="history-item-goal">${typeEmoji} ${s.goal.slice(0, 100)}${s.goal.length > 100 ? '…' : ''}</div>
+      <div class="history-item-meta">${outcomeEmoji} ${(s.outcome || '').replace(/_/g,' ')}</div>
+      ${vocabChips ? `<div class="history-item-vocab">${vocabChips}</div>` : ''}
+    `;
+
+    list.appendChild(item);
+  });
 }
 
-// ── WebSocket connection with auto-reconnect ───────────────────────────────
-// FIX: HF Spaces restarts every 24-72h, dropping all active WebSocket
-// connections. Without reconnect logic, voice sessions appear broken.
-// With it, users see a 2-second pause and continue seamlessly.
-let _wsGoal = "";
-let _wsType = "general";
-let _reconnectAttempts = 0;
-const _MAX_RECONNECT = 5;
+function hideHistory() {
+  document.getElementById('history-modal').classList.add('hidden');
+}
 
-function connectWebSocket(goal, contextType) {
-  _wsGoal = goal || _wsGoal;
-  _wsType = contextType || _wsType;
+function clearHistory() {
+  if (!confirm('Delete all session history?')) return;
+  try { localStorage.removeItem(HISTORY_KEY); } catch {}
+  document.getElementById('history-list').innerHTML =
+    '<div class="history-empty">History cleared.</div>';
+}
 
-  const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  ws = new WebSocket(`${proto}//${location.host}/ws`);
+// ── Preset Selection ────────────────────────────────────────
+
+function selectPreset(btn, contextType, goal) {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedType = contextType;
+  const input  = document.getElementById('goal-input');
+  input.value  = goal;
+  selectedGoal = goal;
+  document.getElementById('start-btn').disabled = false;
+  // Reset photo banner
+  const pa = document.getElementById('photo-analyzing');
+  pa.style.display = 'none';
+  pa.textContent = '';
+}
+
+document.getElementById('goal-input').addEventListener('input', function () {
+  const val = this.value.trim();
+  selectedGoal = val;
+  document.getElementById('start-btn').disabled = val.length < 5;
+  if (!selectedType) selectedType = 'general';
+});
+
+// ── Session Start ───────────────────────────────────────────
+
+async function startSession() {
+  const goal = document.getElementById('goal-input').value.trim();
+  if (!goal) { alert('Please enter or select a goal first.'); return; }
+  selectedGoal = goal;
+  selectedType = selectedType || 'general';
+
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { console.error('AudioContext:', e); }
+  }
+  if (audioCtx?.state === 'suspended') await audioCtx.resume();
+
+  // Reset done screen
+  document.getElementById('score-card').classList.remove('visible');
+  document.getElementById('vocab-container').style.display = 'none';
+  document.getElementById('vocab-list').innerHTML = '';
+  document.getElementById('emotion-panel').classList.remove('visible');
+  document.getElementById('conv-log').innerHTML = '';
+
+  showScreen('session-screen');
+  setStatus('Connecting…', 'yellow');
+  appState = 'CONNECTING';
+  connectWS();
+}
+
+// ── WebSocket ───────────────────────────────────────────────
+
+function connectWS() {
+  if (ws) { ws.onclose = null; ws.close(); ws = null; }
+
+  try { ws = new WebSocket(WS_URL); }
+  catch (e) { setStatus('❌ Cannot connect to server', 'red'); return; }
+
+  ws.binaryType = 'arraybuffer';
 
   ws.onopen = () => {
-    _reconnectAttempts = 0;
-    setStatus("Starting session...", "active");
-    ws.send(JSON.stringify({ action: "start", goal: _wsGoal, context_type: _wsType }));
+    setStatus('Connected — preparing briefing…', 'green');
+    ws.send(JSON.stringify({
+      action:       'start_negotiation',
+      goal:         selectedGoal,
+      context_type: selectedType,
+    }));
   };
 
-  ws.onmessage = handleMessage;
+  ws.onmessage = handleWSMessage;
 
-  ws.onclose = (event) => {
-    if (sessionDone) return;
-    // 1000 = normal close, 1001 = going away — don't reconnect
-    if (event.code === 1000 || event.code === 1001) return;
-
-    if (_reconnectAttempts < _MAX_RECONNECT) {
-      const delay = Math.min(1000 * Math.pow(2, _reconnectAttempts), 15000);
-      _reconnectAttempts++;
-      setStatus(`Connection lost — reconnecting (${_reconnectAttempts}/${_MAX_RECONNECT})...`, "waiting");
-      setTimeout(() => connectWebSocket(), delay);
-    } else {
-      setStatus("Connection failed. Check your network and tap Reset.", "error");
+  ws.onclose = () => {
+    if (appState !== 'DONE') {
+      setStatus('Disconnected — tap Reset', 'red');
+      setMicEnabled(false);
     }
+    ws = null;
   };
 
-  ws.onerror = () => {
-    // onerror is always followed by onclose — let onclose handle reconnect
-    setStatus("Connection error...", "error");
-  };
+  ws.onerror = () => setStatus('❌ Connection error', 'red');
 }
 
-// ── Message Handling ──────────────────────────────────────────────────────────
-function handleMessage(event) {
-  // Binary = audio
-  if (event.data instanceof Blob) {
-    event.data.arrayBuffer().then(buf => playAudio(buf));
+// ── WebSocket Message Handler ───────────────────────────────
+
+function handleWSMessage(event) {
+  if (event.data instanceof ArrayBuffer) {
+    enqueueAudio(event.data);
     return;
   }
 
   let msg;
-  try { msg = JSON.parse(event.data); } catch { return; }
+  try { msg = JSON.parse(event.data); }
+  catch { return; }
 
-  const type = msg.type;
+  const action = msg.action;
 
-  if (type === "status") {
-    setStatus(msg.text, "active");
-
-  } else if (type === "assistant_update") {
-    addConvItem("AI", msg.text, msg.action);
-    const actionLabels = {
-      SPEAK:              "active",
-      CONSULT_USER:       "waiting",
-      DEAL_CLOSED:        "active",
-      TASK_COMPLETE:      "active",
-      REQUEST_FULFILLED:  "active",
+  // ── Status ─────────────────────────────────────────────
+  if (action === 'status') {
+    const dotMap = {
+      '🤔':'yellow','👂':'yellow','🗣️':'blue','🤫':'yellow',
+      '🎙️':'green','✅':'green','❌':'red','🚨':'red','📝':'yellow'
     };
-    setStatus(`Action: ${msg.action}`, actionLabels[msg.action] || "active");
-
-  } else if (type === "user_speech") {
-    addConvItem("You", msg.text, "");
-
-  } else if (type === "hitl_buttons") {
-    showHitlButtons(msg.buttons);
-
-  } else if (type === "session_ended") {
-    // Auto-summary + done screen (Negotiator Change 3)
-    sessionDone = true;
-    hideHitlPanel();
-
-    const icons = {
-      DEAL_CLOSED:        { icon: "🤝", title: "Deal Closed!" },
-      TASK_COMPLETE:      { icon: "✅", title: "Task Complete!" },
-      REQUEST_FULFILLED:  { icon: "🎯", title: "Request Fulfilled!" },
-      SESSION_WRAP_COMPLETE: { icon: "✅", title: "Session Complete!" },
-    };
-    const info = icons[msg.action] || { icon: "✅", title: "Done!" };
-
-    document.getElementById("doneIcon").textContent = info.icon;
-    document.getElementById("doneTitle").textContent = info.title;
-    document.getElementById("doneSummaryText").textContent = msg.summary || "Session completed.";
-
-    showScreen("done-screen");
-    startDoneCountdown(8);
-
-    if (ws) { ws.close(); ws = null; }
-  }
-}
-
-function startDoneCountdown(seconds) {
-  const el = document.getElementById("doneCountdown");
-  let left = seconds;
-  el.textContent = `Returning to setup in ${left}s...`;
-  countdownInterval = setInterval(() => {
-    left--;
-    if (left <= 0) {
-      clearInterval(countdownInterval);
-      resetToSetup();
-    } else {
-      el.textContent = `Returning to setup in ${left}s...`;
+    const firstChar = (msg.text || '').charAt(0);
+    setStatus(msg.text, dotMap[firstChar] || '');
+    if (msg.text && (msg.text.includes('Ready') || msg.text.includes('🎙️'))) {
+      setMicEnabled(true);
+      appState = 'READY';
     }
-  }, 1000);
-}
+    return;
+  }
 
-// ── Mic (main session) ────────────────────────────────────────────────────────
-async function toggleMic() {
-  if (isRecording) {
-    stopRecording();
-  } else {
-    await startRecording();
+  // ── Pre-battle briefing ───────────────────────────────
+  if (action === 'briefing') {
+    showBriefing(msg.text, msg.key_phrase_kr, msg.key_phrase_rom, msg.key_phrase_en);
+    return;
+  }
+
+  // ── Emotion / tension update ──────────────────────────
+  if (action === 'emotion_update') {
+    updateEmotionPanel(msg.mood, msg.deal_chance, msg.next_move);
+    return;
+  }
+
+  // ── Live phrase cheatsheet ────────────────────────────
+  if (action === 'phrase_update') {
+    updatePhraseList(msg.phrases);
+    return;
+  }
+
+  if (action === 'ai_speech') {
+    addMsg(msg.text, 'ai-korean', '🇰🇷 AI (Korean)');
+    return;
+  }
+
+  if (action === 'english_update') {
+    addMsg(msg.text, 'ai-english', '🔤 Update (English)');
+    return;
+  }
+
+  if (action === 'transcription') {
+    addMsg(msg.text, 'local', msg.speaker === 'local' ? '🎙️ Local said' : '🎙️ You said');
+    return;
+  }
+
+  if (action === 'kill_audio') {
+    killAudio();
+    return;
+  }
+
+  if (action === 'show_buttons') {
+    showHITL(msg.message, msg.buttons);
+    setMicEnabled(false);
+    return;
+  }
+
+  // ── Session done ──────────────────────────────────────
+  if (['deal_closed','task_complete','request_fulfilled','session_ended'].includes(action)) {
+    appState = 'DONE';
+    hideHITL();
+    setMicEnabled(false);
+    renderDoneScreen(msg, action);
+    setTimeout(() => showScreen('done-screen'), 800);
+    return;
+  }
+
+  if (action === 'error') {
+    addMsg('⚠️ ' + (msg.message || 'Unknown error'), 'system');
+    setStatus('Error — tap Reset', 'red');
+    return;
+  }
+
+  if (action === 'reset_ok') {
+    resetSession();
+    return;
   }
 }
 
-async function startRecording() {
+// ── Mic: TAP-TO-TOGGLE ──────────────────────────────────────
+
+function handleMicTap(event, whisper) {
+  event.preventDefault();
+  event.stopPropagation();
+  const btn = document.getElementById(whisper ? 'whisper-btn' : 'mic-btn');
+  if (btn.classList.contains('disabled')) return;
+  if (isRecording) stopRecordingInternal();
+  else startRecordingNew(whisper);
+}
+
+async function startRecordingNew(whisper = false) {
+  if (isRecording) return;
+  isWhisperMode = whisper;
+
+  if (isPlayingAudio || audioQueue.length > 0) {
+    killAudio();
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: 'barge_in' }));
+    }
+  }
+
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/ogg; codecs=opus" });
-    audioChunks   = [];
+    if (audioCtx?.state === 'suspended') await audioCtx.resume();
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : 'audio/ogg';
+
+    mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
 
     mediaRecorder.ondataavailable = e => {
-      if (e.data.size > 0) {
-        audioChunks.push(e.data);
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(e.data);  // stream chunks live
-        }
+      if (e.data.size > 0 && ws?.readyState === WebSocket.OPEN) {
+        e.data.arrayBuffer().then(buf => {
+          ws.send(buf);
+          ws.send(JSON.stringify({ action: 'audio_end', is_whisper: isWhisperMode }));
+        });
       }
+      mediaStream?.getTracks().forEach(t => t.stop());
+      mediaStream = null;
     };
 
-    mediaRecorder.onstop = () => {
-      stream.getTracks().forEach(t => t.stop());
-      // Send empty bytes = end of utterance marker
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(new Uint8Array(0));
-      }
-    };
-
-    mediaRecorder.start(250);  // send chunks every 250ms
+    mediaRecorder.start();
     isRecording = true;
+    appState    = 'RECORDING';
 
-    const btn = document.getElementById("micBtn");
-    btn.classList.add("recording");
-    btn.innerHTML = "⏹ Release to Send";
+    const btn = document.getElementById(whisper ? 'whisper-btn' : 'mic-btn');
+    btn.classList.add('recording');
 
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ action: "barge_in" }));
+    if (whisper) {
+      btn.textContent = '⏹️';
+      setStatus('🤫 Whispering to AI... tap again to send', 'yellow');
+      document.getElementById('mic-hint').textContent = 'Tap 🤫 again to stop whispering';
+    } else {
+      btn.textContent = '⏹️';
+      setStatus('🔴 Recording... tap again when they finish speaking', 'red');
+      document.getElementById('mic-hint').textContent = 'Tap again when they finish speaking';
     }
 
-  } catch (e) {
-    alert("Microphone access denied. Please allow microphone access.");
+  } catch (err) {
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      setStatus('❌ Mic blocked — allow in browser/app settings', 'red');
+    } else {
+      setStatus('❌ Mic error: ' + err.message, 'red');
+    }
+    isRecording = false;
   }
 }
 
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state === "recording") {
-    mediaRecorder.stop();
-  }
+function stopRecordingInternal() {
+  if (!isRecording) return;
   isRecording = false;
-  const btn = document.getElementById("micBtn");
-  btn.classList.remove("recording");
-  btn.innerHTML = "🎙️ Hold to Speak";
-  setStatus("Processing...", "waiting");
+  appState    = 'READY';
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  const micBtn     = document.getElementById('mic-btn');
+  const whisperBtn = document.getElementById('whisper-btn');
+  micBtn.classList.remove('recording');
+  micBtn.textContent = '🎙️';
+  whisperBtn.classList.remove('recording');
+  whisperBtn.textContent = '🤫';
+  setStatus('👂 Processing...', 'yellow');
+  document.getElementById('mic-hint').textContent = 'Tap 🎙️ once to START · tap again to STOP';
 }
 
-// ── Audio Playback ────────────────────────────────────────────────────────────
-async function playAudio(buffer) {
+// ── Audio Playback (Blob URL — works in Telegram WebView) ───
+
+function enqueueAudio(arrayBuffer) {
+  if (shouldKillAudio) return;
+  audioQueue.push(arrayBuffer);
+  if (!isPlayingAudio) playNextAudio();
+}
+
+async function playNextAudio() {
+  if (shouldKillAudio) { audioQueue = []; shouldKillAudio = false; isPlayingAudio = false; return; }
+  if (audioQueue.length === 0) { isPlayingAudio = false; return; }
+  isPlayingAudio = true;
+  const buffer = audioQueue.shift();
   try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const audioData = await audioCtx.decodeAudioData(buffer.slice(0));
-    const source    = audioCtx.createBufferSource();
-    source.buffer   = audioData;
-    source.connect(audioCtx.destination);
-    source.start(0);
-    setStatus("🔊 Speaking Korean...", "active");
-    source.onended = () => setStatus("Ready — press mic to respond", "active");
+    // Use Blob URL + Audio element — much more reliable than AudioContext.decodeAudioData
+    // which silently fails in Telegram WebView and some mobile browsers
+    const blob = new Blob([buffer], { type: 'audio/mp3' });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audioSource = audio;
+    audio.onended = () => { URL.revokeObjectURL(url); audioSource = null; playNextAudio(); };
+    audio.onerror = (e) => { console.warn('Audio play error:', e); URL.revokeObjectURL(url); audioSource = null; playNextAudio(); };
+    // Resume AudioContext if needed (for user gesture requirement)
+    if (audioCtx?.state === 'suspended') await audioCtx.resume();
+    await audio.play();
   } catch (e) {
-    console.error("Audio playback error:", e);
+    console.warn('Audio playback failed, trying next:', e);
+    audioSource = null;
+    playNextAudio();
   }
 }
 
-// ── HITL Buttons ──────────────────────────────────────────────────────────────
-function showHitlButtons(buttons) {
-  const panel   = document.getElementById("hitlPanel");
-  const container = document.getElementById("hitlButtons");
-  container.innerHTML = "";
-  buttons.forEach(text => {
-    const btn = document.createElement("button");
-    btn.className   = "hitl-btn";
-    btn.textContent = text;
-    btn.onclick = () => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ action: "hitl_choice", choice: text }));
-      }
-      hideHitlPanel();
-      addConvItem("You (chose)", text, "");
-    };
-    container.appendChild(btn);
-  });
-  panel.style.display = "flex";
-  panel.scrollIntoView({ behavior: "smooth" });
-}
-
-function hideHitlPanel() {
-  document.getElementById("hitlPanel").style.display = "none";
-}
-
-// ── Modify Goal Modal (Negotiator Change 1) ───────────────────────────────────
-function openModifyModal() {
-  document.getElementById("modifyInput").value = document.getElementById("activeGoal").textContent;
-  document.getElementById("modifyModal").classList.add("open");
-  document.getElementById("modifyInput").focus();
-}
-function closeModifyModal() {
-  document.getElementById("modifyModal").classList.remove("open");
-}
-function confirmModifyGoal() {
-  const newGoal = document.getElementById("modifyInput").value.trim();
-  if (!newGoal) return;
-  document.getElementById("activeGoal").textContent = newGoal;
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: "user_modify", goal: newGoal }));
+function killAudio() {
+  shouldKillAudio = true;
+  audioQueue = [];
+  if (audioSource) {
+    try {
+      if (audioSource instanceof Audio || audioSource.pause) { audioSource.pause(); audioSource.currentTime = 0; }
+      else if (audioSource.stop) { audioSource.stop(); }
+    } catch {}
+    audioSource = null;
   }
-  addConvItem("System", `Goal updated: ${newGoal}`, "");
-  closeModifyModal();
+  isPlayingAudio = false;
 }
 
-// ── UI Helpers ────────────────────────────────────────────────────────────────
-function showScreen(id) {
-  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
+// ── Reset ────────────────────────────────────────────────────
+
+function resetSession() {
+  stopRecordingInternal();
+  killAudio();
+  if (ws) { ws.onclose = null; ws.close(); ws = null; }
+
+  selectedGoal = '';
+  selectedType = null;
+  isRecording  = false;
+  appState     = 'SETUP';
+
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('selected'));
+  const goalInput = document.getElementById('goal-input');
+  if (goalInput) goalInput.value = '';
+  const startBtn = document.getElementById('start-btn');
+  if (startBtn) startBtn.disabled = true;
+  const convLog = document.getElementById('conv-log');
+  if (convLog) convLog.innerHTML = '';
+  const pa = document.getElementById('photo-analyzing');
+  if (pa) { pa.style.display = 'none'; pa.textContent = ''; pa.style.borderColor = ''; pa.style.color = ''; }
+  hideHITL();
+  setMicEnabled(false);
+  setStatus('Ready', '');
+  document.getElementById('briefing-overlay').classList.add('hidden');
+  hideHistory();
+  showScreen('setup-screen');
 }
 
-function setStatus(text, state) {
-  document.getElementById("statusText").textContent = text;
-  const dot = document.getElementById("statusDot");
-  dot.className = "status-dot";
-  if (state) dot.classList.add(state);
-}
-
-function addConvItem(label, text, action) {
-  const feed = document.getElementById("convFeed");
-  const item = document.createElement("div");
-  item.className = `conv-item ${label === "AI" ? "ai-item" : "user-item"}`;
-
-  const labelDiv = document.createElement("div");
-  labelDiv.className = "conv-label";
-  labelDiv.textContent = label === "AI" ? "🤖 AI (Korean)" : `👤 ${label}`;
-  item.appendChild(labelDiv);
-
-  const textDiv = document.createElement("div");
-  textDiv.className = "conv-text";
-  textDiv.textContent = text;
-  item.appendChild(textDiv);
-
-  if (action && action !== "SPEAK") {
-    const badge = document.createElement("div");
-    const cls = {
-      CONSULT_USER: "action-consult",
-      DEAL_CLOSED: "action-deal",
-      TASK_COMPLETE: "action-task",
-      REQUEST_FULFILLED: "action-task",
-    }[action] || "action-speak";
-    badge.className = `conv-action ${cls}`;
-    badge.textContent = action.replace("_", " ");
-    item.appendChild(badge);
+function endSessionNormally() {
+  if (ws && ws.readyState === WebSocket.OPEN && appState !== 'SETUP' && appState !== 'DONE') {
+    ws.send(JSON.stringify({ action: 'user_end_session' }));
+    setStatus('📝 Analysing session…', 'yellow');
+    setMicEnabled(false);
+  } else {
+    alert('No active session to finish.');
   }
-
-  feed.appendChild(item);
-  feed.scrollTop = feed.scrollHeight;
 }
 
-function resetToSetup() {
-  if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
-  if (ws) { ws.close(); ws = null; }
-  if (mediaRecorder && mediaRecorder.state === "recording") { mediaRecorder.stop(); }
-  isRecording = false;
-  sessionDone = false;
-  document.getElementById("convFeed").innerHTML = "";
-  hideHitlPanel();
-  showScreen("setup-screen");
-  setStatus("Ready", "");
-}
+// ── Voice Dictation for Goal Input ──────────────────────────
 
-// Keyboard shortcut: Enter on goal input = start session
-document.getElementById("goalInput").addEventListener("keydown", e => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    startSession();
-  }
-});
-
-// Enter key on modify input
-document.getElementById("modifyInput").addEventListener("keydown", e => {
-  if (e.key === "Enter") confirmModifyGoal();
-});
-
-// ── Telegram Web App integration + CloudStorage history cache ─────────────
-// FIX: "fetch history on open" naive approach = blank screen for 3-8s
-// if Supabase just unpaused or HF Spaces just cold-started.
-// Solution: render from CloudStorage instantly (10ms), fetch fresh async.
-// This is the industry pattern for offline-first Mini Apps.
-if (window.Telegram && window.Telegram.WebApp) {
-  const tg = window.Telegram.WebApp;
-  tg.ready();
-  tg.expand();
-
-  // Step 1: render cached history instantly (CloudStorage, ~4KB, persists across sessions)
-  tg.CloudStorage.getItem("session_cache", (err, cached) => {
-    if (!err && cached) {
-      try {
-        const data = JSON.parse(cached);
-        if (data.goal) document.getElementById("goalInput").value = data.goal;
-        if (data.lastActivity) {
-          // Show cached conv items as ghost state while fresh data loads
-          const feed = document.getElementById("convFeed");
-          if (feed && data.history && data.history.length > 0) {
-            data.history.slice(-3).forEach(item => {
-              addConvItem(item.label, item.text, "");
-            });
-          }
-        }
-      } catch (e) { /* ignore corrupt cache */ }
-    }
-  });
-
-  // Step 2: fetch fresh history from FastAPI async (after UI is already shown)
-  const initData = tg.initData;
-  if (initData) {
-    fetch("/get_history?limit=10", {
-      headers: { "X-Init-Data": initData }
-    })
-    .then(r => r.ok ? r.json() : null)
-    .then(data => {
-      if (!data || !data.messages) return;
-      // Update CloudStorage with fresh data
-      const cachePayload = {
-        goal: document.getElementById("goalInput").value,
-        history: data.messages.slice(-10).map(m => ({
-          label: m.role === "user" ? "You" : "AI",
-          text: m.content.slice(0, 200)
-        })),
-        lastActivity: Date.now(),
-      };
-      tg.CloudStorage.setItem("session_cache", JSON.stringify(cachePayload));
-    })
-    .catch(() => { /* network error — cached version shown, no crash */ });
-  }
+function startDictation() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('Voice typing not supported in this browser. Please type your goal.'); return; }
+  const recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.interimResults = false;
+  const btn = document.getElementById('dictate-btn');
+  btn.textContent = '🔴';
+  recognition.start();
+  recognition.onresult = e => {
+    const transcript = e.results[0][0].transcript;
+    const input = document.getElementById('goal-input');
+    input.value = (input.value + ' ' + transcript).trim();
+    input.dispatchEvent(new Event('input'));
+    btn.textContent = '🎤';
+  };
+  recognition.onerror = e => {
+    btn.textContent = '🎤';
+    if (e.error === 'not-allowed') alert('Mic access denied — allow it in settings.');
+  };
+  recognition.onend = () => { btn.textContent = '🎤'; };
 }
 </script>
 </body>

@@ -178,6 +178,9 @@ async def post_word_to_group(bot: Bot, group_id: int, topic_id: int = None):
         logger.warning("Could not post word to group: %s", e)
 
 
+_scheduler = None
+_bot = None
+
 def start_scheduler(application):
     """
     Start APScheduler. Call this in bot.py main() after app is built.
@@ -186,6 +189,7 @@ def start_scheduler(application):
         from notifier import start_scheduler
         start_scheduler(app)
     """
+    global _scheduler
     try:
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
         from apscheduler.triggers.cron import CronTrigger
@@ -196,6 +200,7 @@ def start_scheduler(application):
 
     KST = pytz.timezone("Asia/Seoul")
     scheduler = AsyncIOScheduler(timezone=KST)
+    _scheduler = scheduler
     bot = application.bot
 
     async def run_for_all_users(coro_fn, *args):
@@ -320,4 +325,31 @@ def start_scheduler(application):
 
     scheduler.start()
     logger.info("Scheduler started — queue flush 10s, keep-alive 3d, stagger 0.3s/user")
+    
+    # Expose bot globally for custom jobs
+    global _bot
+    _bot = bot
     return scheduler
+
+def add_custom_reminder(user_id: int, task: str, run_date: datetime):
+    """Add a custom one-off reminder for the user."""
+    if not _scheduler or not _bot:
+        logger.warning("Scheduler or Bot not initialized, cannot add reminder")
+        return
+
+    async def _send_reminder(uid, txt):
+        try:
+            await _bot.send_message(chat_id=uid, text=f"🔔 REMINDER: {txt}")
+        except Exception as e:
+            logger.error("Failed to send reminder: %s", e)
+
+    import uuid
+    job_id = f"reminder_{user_id}_{uuid.uuid4().hex[:8]}"
+    _scheduler.add_job(
+        _send_reminder,
+        "date",
+        run_date=run_date,
+        args=[user_id, task],
+        id=job_id
+    )
+    logger.info(f"Scheduled custom reminder {job_id} at {run_date}")

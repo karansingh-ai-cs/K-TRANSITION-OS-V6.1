@@ -8,7 +8,7 @@ import base64
 import io
 import logging
 import asyncio
-from config import GROQ_API_KEY, GEMINI_API_KEY, GROQ_MODEL, GEMINI_MODEL, WHISPER_MODEL
+from config import get_groq_key, GEMINI_API_KEY, GROQ_MODELS, GROQ_LIGHT_MODEL, GEMINI_MODEL, WHISPER_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -72,31 +72,108 @@ Convenience stores (CU/GS25/7-Eleven): pay bills, charge T-Money, ATM, print, ea
 """
 
 
-# ── Groq API ──────────────────────────────────────────────────────────────────
+# ── Groq API with Tool Calling ────────────────────────────────────────────────
+
+def search_korea_web(query: str) -> str:
+    """Search DuckDuckGo with strict Korea localization and return full context snippets."""
+    try:
+        from duckduckgo_search import DDGS
+        # Force localization to Korea
+        localized_query = f"{query} in South Korea OR 대한민국"
+        logger.info(f"Searching web: {localized_query}")
+        
+        results = DDGS().text(localized_query, region='kr-kr', safesearch='off', max_results=10)
+        if not results:
+            return "No search results found. Recommend checking with official sources like 1345 hotline."
+            
+        snippets = []
+        for r in results:
+            snippets.append(f"Source: {r.get('title', 'Unknown')}\nInfo: {r.get('body', '')}\nURL: {r.get('href', '')}\n")
+            
+        full_text = "\n".join(snippets)
+        return full_text[:4000] # Limit context size
+    except Exception as e:
+        logger.error(f"Search failed: {e}")
+        return f"Search failed: {e}. Recommend checking with official sources."
+
 
 def call_groq(messages: list, system_prompt: str = None) -> str | None:
-    if not GROQ_API_KEY:
+    api_key = get_groq_key()
+    if not api_key:
         return None
+        
     api_messages = []
     if system_prompt:
         api_messages.append({"role": "system", "content": system_prompt})
     api_messages.extend(messages)
-    try:
-        r = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-            json={"model": GROQ_MODEL, "messages": api_messages, "max_tokens": 1000, "temperature": 0.7},
-            timeout=30,
-        )
-        r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"]
-    except requests.HTTPError as e:
-        if e.response.status_code == 429:
-            logger.warning("Groq rate limit — switching to Gemini")
-        else:
-            logger.error("Groq HTTP error: %s", e)
-    except Exception as e:
-        logger.error("Groq error: %s", e)
+    
+    tools = [{
+        "type": "function",
+        "function": {
+            "name": "search_korea_web",
+            "description": "Search the internet for real-time information, laws, fees, or news about South Korea. USE THIS FOR ANY DATA YOU ARE NOT 100% SURE ABOUT.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The search query (e.g. 'ARC renewal fee 2025')"
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    }]
+    
+    for model in GROQ_MODELS:
+        try:
+            r = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={"model": model, "messages": api_messages, "tools": tools, "tool_choice": "auto", "max_tokens": 1500, "temperature": 0.5},
+                timeout=30,
+            )
+            r.raise_for_status()
+            response_msg = r.json()["choices"][0]["message"]
+            
+            # Tool call loop
+            if response_msg.get("tool_calls"):
+                api_messages.append(response_msg)
+                for tool_call in response_msg["tool_calls"]:
+                    if tool_call["function"]["name"] == "search_korea_web":
+                        args = json.loads(tool_call["function"]["arguments"])
+                        search_result = search_korea_web(args["query"])
+                        api_messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call["id"],
+                            "name": "search_korea_web",
+                            "content": search_result
+                        })
+                
+                # Second call with search results
+                r2 = requests.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={"model": model, "messages": api_messages, "max_tokens": 1500, "temperature": 0.7},
+                    timeout=30,
+                )
+                r2.raise_for_status()
+                return r2.json()["choices"][0]["message"]["content"]
+                
+            return response_msg.get("content")
+            
+        except requests.HTTPError as e:
+            if e.response.status_code == 429:
+                logger.warning(f"Groq rate limit on {model} — trying next model...")
+                continue # Try the next model in the list
+            else:
+                logger.error("Groq HTTP error: %s", e)
+                break # Non rate limit error, don't retry models
+        except Exception as e:
+            logger.error("Groq error: %s", e)
+            break
+            
+    logger.warning("All Groq models exhausted or failed — switching to Gemini fallback")
     return None
 
 
@@ -220,7 +297,8 @@ def transcribe_audio(audio_bytes: bytes, lang_hint: str = "ko") -> str | None:
     FIX: exponential backoff on 429. Retry once after 10s before giving up.
     Whisper rate limits hit before text inference limits at scale.
     """
-    if not GROQ_API_KEY:
+    api_key = get_groq_key()
+    if not api_key:
         return None
     if not audio_bytes or len(audio_bytes) < 500:
         return None
@@ -234,7 +312,7 @@ def transcribe_audio(audio_bytes: bytes, lang_hint: str = "ko") -> str | None:
             with open(tmp_path, "rb") as f:
                 r = requests.post(
                     "https://api.groq.com/openai/v1/audio/transcriptions",
-                    headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+                    headers={"Authorization": f"Bearer {api_key}"},
                     files={"file": ("voice.ogg", f, "audio/ogg")},
                     data={"model": WHISPER_MODEL, "language": lang_hint,
                           "prompt": "Korean and English conversation. 안녕하세요."},
@@ -269,7 +347,8 @@ LEVEL_LABELS = {1: "beginner", 2: "elementary", 3: "intermediate", 4: "upper-int
 
 def generate_quiz_question(level: int = 1, category: str = "daily life") -> dict | None:
     """Ask Groq to generate a fresh quiz question. Returns structured dict or None."""
-    if not GROQ_API_KEY:
+    api_key = get_groq_key()
+    if not api_key:
         return None
 
     level_name = LEVEL_LABELS.get(level, "beginner")
@@ -294,7 +373,23 @@ Rules:
 
     try:
         messages = [{"role": "user", "content": prompt}]
-        raw = call_groq(messages)   # no system prompt — we want pure JSON
+        raw = None
+        for model in GROQ_MODELS:
+            try:
+                r = requests.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={"model": model, "messages": messages, "max_tokens": 500, "temperature": 0.3},
+                    timeout=20,
+                )
+                r.raise_for_status()
+                raw = r.json()["choices"][0]["message"]["content"]
+                break
+            except requests.HTTPError as e:
+                if e.response.status_code == 429:
+                    continue
+                break
+                
         if not raw:
             return None
         clean = raw.replace("```json", "").replace("```", "").strip()

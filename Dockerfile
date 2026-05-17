@@ -1,25 +1,26 @@
-# Dockerfile — K-Transition OS (Hugging Face Spaces)
-# Bot khud port 7860 par keep-alive server chalata hai
-# Bahar se koi extra server ki zaroorat nahi
+# Dockerfile — K-Transition OS v6.0 (Render)
+# Single service: Telegram bot + Negotiator MiniApp (FastAPI)
+# Bot runs polling in main thread, FastAPI runs in background thread on PORT
 
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 # System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Requirements pehle copy karo (Docker cache ke liye)
+# Requirements first (Docker cache friendly)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Saara code copy karo
+# Copy all code
 COPY . .
 
-# Port 7860 — Hugging Face yahi expect karta hai
-EXPOSE 7860
+# Render default port
+EXPOSE 10000
 
-# Sirf bot chalao — keep-alive server bot.py ke andar hai
+# Single command runs both bot + negotiator
 CMD ["python3", "bot.py"]

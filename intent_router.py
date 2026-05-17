@@ -22,6 +22,7 @@ RESPOND ONLY WITH VALID JSON — no markdown, no explanation, no extra text:
 }}
 
 INTENTS (pick ONE):
+- "state_continue" — user is answering a quiz, picking an option (A/B/C), typing 'next', or responding to the active module. Entities: {{"answer": "..."}}
 - "cook" — wants to cook, lists ingredients, food prep. Entities: {{"ingredients": "..."}}
 - "map" — find place, directions, nearby. Entities: {{"query": "...", "type": "search|nearby|directions", "origin": "...", "destination": "..."}}
 - "buddy" — casual chat, emotional support, homesick, lonely, stressed, wants a friend. Entities: {{"mood": "..."}}
@@ -33,9 +34,10 @@ INTENTS (pick ONE):
 - "visa" — visa, ARC, immigration. Entities: {{}}
 - "challenge" — daily survival challenge. Entities: {{}}
 - "track" — budget/habit tracker. Entities: {{"tracker": "...", "value": "..."}}
+- "reminder" — user wants to set a reminder or alarm. Entities: {{"task": "...", "time": "..."}}
 - "apps" — app recommendations. Entities: {{"category": "..."}}
 - "hack" — Korea life hacks. Entities: {{"topic": "..."}}
-- "schedule" — first week plan, tasks. Entities: {{}}
+- "schedule" — first week plan, general checklist. Entities: {{}}
 - "quiz" — Korean quiz. Entities: {{}}
 - "word" — Korean word of the day. Entities: {{}}
 - "phrase" — survival phrases. Entities: {{"category": "..."}}
@@ -57,15 +59,11 @@ CRITICAL MAP RULES:
 2. For directions ("from X to Y", "how to get to") → type="directions", extract origin+destination
 3. For "near me/nearby/closest" → type="nearby"
 
-CRITICAL COOK RULES:
-1. If user just lists food items with no context → intent="cook"
-2. Extract ALL ingredients mentioned
+CRITICAL STATE RULES:
+1. If CurrentState is NOT 'IDLE' and user types short answers ("A", "B", "C", "next", "continue", "skip"), intent MUST BE "state_continue".
+2. If user abruptly asks for help or changes topic dramatically, use the appropriate intent (e.g. "sos").
 
-CRITICAL BUDDY RULES:
-1. "I miss home", "feeling lonely", "stressed out", "nobody understands" → intent="buddy"
-2. Casual friendly messages like "how are you", "what's up" → intent="buddy"
-
-USER CONTEXT: University={university}, City={city}, Diet={diet}"""
+USER CONTEXT: University={university}, City={city}, Diet={diet}, CurrentState={current_state}"""
 
 # Fast pre-filter — skip LLM for single-word obvious matches
 _QUICK = {
@@ -77,22 +75,27 @@ _QUICK = {
 }
 
 
-async def route_intent(text: str, user_info: dict = None) -> dict:
+async def route_intent(text: str, user_info: dict = None, current_state: str = "IDLE") -> dict:
     """Classify user message intent + extract entities via LLM.
     Returns: {intent, entities, korean_query, confidence}
     """
     text_lower = text.lower().strip()
 
-    # Quick pre-filter
-    if text_lower in _QUICK:
+    # Quick pre-filter - only trigger if we are IDLE or the user explicitly types the command
+    if current_state == "IDLE" and text_lower in _QUICK:
         intent, conf = _QUICK[text_lower]
         return {"intent": intent, "entities": {}, "korean_query": None, "confidence": conf}
+
+    # If in an active state, check if it's a simple 'c' or 'next'
+    if current_state != "IDLE" and text_lower in ["a", "b", "c", "next", "continue", "skip"]:
+        return {"intent": "state_continue", "entities": {"answer": text_lower}, "korean_query": None, "confidence": 0.99}
 
     user_info = user_info or {}
     system = ROUTER_SYSTEM.format(
         university=user_info.get("university", "unknown"),
         city=user_info.get("city", "unknown"),
         diet=user_info.get("diet", "none"),
+        current_state=current_state
     )
 
     messages = [{"role": "user", "content": text}]
