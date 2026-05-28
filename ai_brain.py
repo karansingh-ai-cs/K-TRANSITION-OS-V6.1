@@ -180,24 +180,36 @@ def _call_gemini_model(model: str, messages: list, system_prompt: str = None,
         return None
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
-    # Context history pruning (max 4 messages) to save tokens under concurrent load!
-    pruned_messages = messages[-4:] if len(messages) > 4 else messages
+    # Context history pruning (max 8 messages) to save tokens but retain memory!
+    pruned_messages = messages[-8:] if len(messages) > 8 else messages
 
-    prefix = (system_prompt + "\n\n---\n\n") if system_prompt else ""
-    last_user = next((m["content"] for m in reversed(pruned_messages) if m["role"] == "user"), "")
+    contents = []
+    for m in pruned_messages:
+        # Gemini uses "model" instead of "assistant"
+        role = "model" if m.get("role") == "assistant" else "user"
+        contents.append({
+            "role": role,
+            "parts": [{"text": str(m.get("content", ""))}]
+        })
+        
+    if not contents:
+        contents.append({"role": "user", "parts": [{"text": "Hello"}]})
 
-    parts = [{"text": prefix + last_user}]
     if image_bytes:
         resized = _resize_image(image_bytes)
-        parts = [
-            {"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(resized).decode()}},
-            {"text": prefix + last_user},
-        ]
+        img_part = {"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(resized).decode()}}
+        if contents[-1]["role"] == "user":
+            contents[-1]["parts"].insert(0, img_part)
+        else:
+            contents.append({"role": "user", "parts": [img_part, {"text": "Analyze this image."}]})
 
     payload = {
-        "contents": [{"role": "user", "parts": parts}],
+        "contents": contents,
         "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600},
     }
+    
+    if system_prompt:
+        payload["systemInstruction"] = {"parts": [{"text": system_prompt}]}
     try:
         headers = {
             "Content-Type": "application/json"
