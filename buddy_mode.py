@@ -156,6 +156,17 @@ async def chat_with_buddy(user_message, user_info, conversation_history=None):
     try:
         response = await asyncio.to_thread(call_groq, messages, system)
         if response:
+            # POST-PROCESSING: Gemma loves to output its Chain of Thought checklist.
+            # We strip out any lines starting with * or - and take the final result.
+            lines = response.strip().split('\n')
+            clean_lines = [l for l in lines if not l.strip().startswith(('*', '-')) and l.strip()]
+            
+            if clean_lines:
+                final_msg = clean_lines[-1].strip()
+                # Remove surrounding quotes if the AI wrapped it (e.g. "yo what's up")
+                if final_msg.startswith('"') and final_msg.endswith('"'):
+                    final_msg = final_msg[1:-1]
+                return final_msg
             return response
     except Exception as e:
         logger.error(f"Buddy mode failed: {e}")
