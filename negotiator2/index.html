@@ -7,22 +7,24 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
     :root {
-      --bg:       #0d0d0d;
-      --surface:  #1a1a1a;
-      --card:     #222;
-      --border:   #333;
-      --accent:   #4f8cff;
-      --accent2:  #7c5cff;
-      --green:    #22c55e;
-      --red:      #ef4444;
-      --yellow:   #f59e0b;
-      --orange:   #fb923c;
-      --text:     #f0f0f0;
-      --muted:    #888;
-      --radius:   14px;
-      --radius-sm:8px;
+      --bg:           #1A1917;   /* warm near-black   */
+      --surface:      #242220;   /* panels             */
+      --card:         #2E2C29;   /* nested cards       */
+      --border:       #3D3A36;   /* warm border        */
+      --accent:       #AFA9EC;   /* purple-200         */
+      --accent-strong:#7F77DD;   /* purple-400 buttons */
+      --accent2:      #F0997B;   /* coral-200          */
+      --green:        #5DCAA5;   /* teal-200           */
+      --red:          #F09595;   /* red-200            */
+      --yellow:       #FAC775;   /* amber-100          */
+      --orange:       #fb923c;   
+      --text:         #F0ECE4;   /* warm white         */
+      --muted:        #8A8378;   /* warm gray          */
+      --radius:       14px;
+      --radius-sm:    8px;
     }
 
     body {
@@ -224,6 +226,11 @@
     @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
     .modal-overlay.hidden { display: none; }
 
+    @keyframes textShimmer {
+      0% { text-shadow: 0 0 10px rgba(255,255,255,0.2); color: #ccc; }
+      100% { text-shadow: 0 0 30px rgba(255,255,255,0.8); color: #fff; }
+    }
+
     .briefing-card {
       background: linear-gradient(135deg, #1a2e1a, #1e3520);
       border: 1.5px solid var(--green);
@@ -313,49 +320,68 @@
     .status-dot.blue   { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
     .status-dot.red    { background: var(--red); box-shadow: 0 0 6px var(--red); }
 
-    /* ── Emotion / Tension Detector ───────────────────────── */
-    .emotion-panel {
+    /* ── Tension Meter ───────────────────────── */
+    .tension-meter {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      padding: 8px 12px;
+      padding: 10px 14px;
       display: none;
-      gap: 0;
+      flex-direction: column;
+      gap: 6px;
       flex-shrink: 0;
     }
-    .emotion-panel.visible { display: flex; }
-    .emotion-row { display: flex; gap: 6px; align-items: stretch; }
-    .em-item {
-      flex: 1;
+    .tension-meter.visible { display: flex; }
+    .tension-header { display: flex; justify-content: space-between; align-items: center; }
+    .em-mood { font-size: 11px; font-weight: 700; color: var(--text); }
+    .em-deal { font-size: 11px; font-weight: 700; color: var(--muted); }
+    .tension-bar-wrap {
+      height: 4px;
       background: var(--surface);
-      border-radius: 6px;
-      padding: 6px 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .em-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
-    .em-value { font-size: 12px; font-weight: 700; color: var(--text); }
-    .em-value.friendly { color: var(--green); }
-    .em-value.neutral  { color: var(--yellow); }
-    .em-value.annoyed  { color: var(--red); }
-    .em-value.busy     { color: var(--orange); }
-    .em-value.uncertain{ color: var(--muted); }
-    .em-deal-bar {
-      height: 3px;
-      background: var(--border);
       border-radius: 2px;
-      margin-top: 4px;
       overflow: hidden;
+      width: 100%;
     }
-    .em-deal-fill {
+    .tension-bar-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--red), var(--yellow), var(--green));
-      border-radius: 2px;
-      transition: width .5s ease;
+      background: var(--green); /* transitions via JS */
+      width: 0%;
+      transition: width 0.5s ease, background-color 0.5s ease;
     }
-    .em-next { font-size: 10px; color: #a0c0ff; line-height: 1.3; }
-    .em-next-wrap { flex: 2; }
+    .em-next { font-size: 10px; color: var(--accent); opacity: 0.9; }
+
+    /* ── Sliders ────────────────────────────── */
+    .slider-group {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .slider-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .slider-label span { color: var(--accent); margin-left: 4px; }
+    .slider-group input[type="range"] {
+      width: 100%; appearance: none; background: transparent; cursor: pointer;
+    }
+    .slider-group input[type="range"]::-webkit-slider-runnable-track {
+      background: var(--surface); height: 6px; border-radius: 3px;
+    }
+    .slider-group input[type="range"]::-webkit-slider-thumb {
+      appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: var(--accent-strong); margin-top: -6px; border: 2px solid var(--card);
+    }
+    .slider-ticks { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); }
+
+    /* ── Timer ──────────────────────────────── */
+    .session-timer {
+      margin-left: auto;
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--muted);
+      background: var(--surface);
+      padding: 3px 6px;
+      border-radius: 4px;
+    }
 
     /* ── Phrase Cheatsheet ────────────────────────────────── */
     .phrase-panel {
@@ -433,25 +459,29 @@
       opacity: 0.55;
     }
     .msg-ai-korean {
-      background: linear-gradient(135deg, #1e2a40, #1a2035);
-      border: 1px solid #2a3a5e;
-      color: #a8c4ff;
-      align-self: flex-start;
+      background: var(--accent-strong);
+      color: #fff;
+      align-self: flex-end;
+      border-radius: 12px 12px 0 12px;
+      border: none;
       font-size: 14px;
     }
     .msg-ai-english {
-      background: var(--card);
-      border: 1px solid var(--border);
+      background: transparent;
       color: var(--muted);
       font-size: 11px;
-      align-self: flex-start;
-      font-style: italic;
+      align-self: flex-end;
+      text-align: right;
+      border: none;
+      padding: 0 11px;
+      margin-top: -8px;
     }
     .msg-local {
-      background: #1e2a1e;
-      border: 1px solid #2a4a2a;
-      color: #8fcf8f;
-      align-self: flex-end;
+      background: var(--surface);
+      color: var(--text);
+      align-self: flex-start;
+      border-radius: 12px 12px 12px 0;
+      border: 1px solid var(--border);
     }
     .msg-system {
       background: transparent;
@@ -515,22 +545,17 @@
       align-items: center;
       justify-content: center;
       font-size: 28px;
-      transition: all .15s;
+      transition: transform .1s, background .3s;
       user-select: none;
       -webkit-user-select: none;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
     .mic-btn.recording {
-      background: var(--red);
+      background: var(--card); /* conic gradient added via JS */
       border-color: var(--red);
       transform: scale(1.1);
       box-shadow: 0 0 24px rgba(239,68,68,.5);
-      animation: pulse 1s infinite;
-    }
-    @keyframes pulse {
-      0%,100% { box-shadow: 0 0 24px rgba(239,68,68,.5); }
-      50%      { box-shadow: 0 0 36px rgba(239,68,68,.8); }
     }
     .mic-btn.disabled { opacity: 0.3; cursor: not-allowed; border-color: var(--muted); }
 
@@ -730,7 +755,8 @@
 
 <!-- ── Header ─────────────────────────────────────────────── -->
 <header class="header">
-  <span class="header-icon">🤝</span>
+  <span class="header-icon" id="header-icon">🤝</span>
+  <img id="header-thumb" style="display:none; width:36px; height:36px; border-radius:6px; object-fit:cover;" />
   <div class="header-text">
     <div class="header-title">K-Transition OS</div>
     <div class="header-sub">AI speaks Korean for you</div>
@@ -812,6 +838,18 @@
       </button>
     </div>
 
+    <span class="section-label">AI Negotiation Style</span>
+    <div class="slider-group">
+      <label class="slider-label">Aggressiveness: <span id="agg-val">Balanced</span></label>
+      <input type="range" id="agg-slider" min="1" max="3" value="2" oninput="updateSliders()">
+      <div class="slider-ticks"><span>Polite</span><span>Balanced</span><span>Aggressive</span></div>
+    </div>
+    <div class="slider-group">
+      <label class="slider-label">Formality: <span id="form-val">Standard (-요)</span></label>
+      <input type="range" id="form-slider" min="1" max="3" value="2" oninput="updateSliders()">
+      <div class="slider-ticks"><span>Casual</span><span>Standard (-요)</span><span>Formal (-습니다)</span></div>
+    </div>
+
     <span class="section-label">Describe Your Goal</span>
     <div class="goal-input-wrap">
       <textarea id="goal-input" class="goal-input" rows="3"
@@ -849,6 +887,13 @@
   </div>
 </div>
 
+<!-- ── Show-Phone Overlay 2.0 ─────────────────────────────── -->
+<div class="modal-overlay hidden" id="show-phone-overlay" onclick="this.classList.add('hidden')" style="align-items:center; background:#000;">
+  <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; padding:20px; text-align:center;">
+    <div id="show-phone-text" style="font-size:48px; font-weight:700; line-height:1.4; animation: textShimmer 2s infinite alternate;"></div>
+  </div>
+</div>
+
 <!-- ── Session Screen ─────────────────────────────────────── -->
 <div class="screen" id="session-screen">
   <div class="session-inner">
@@ -856,25 +901,19 @@
     <div class="status-bar" id="status-bar">
       <div class="status-dot" id="status-dot"></div>
       <span id="status-text">Initialising...</span>
+      <div class="session-timer" id="session-timer">00:00 (0)</div>
     </div>
 
-    <!-- Emotion / Tension Detector -->
-    <div class="emotion-panel" id="emotion-panel">
-      <div class="emotion-row">
-        <div class="em-item">
-          <span class="em-label">Their Mood</span>
-          <span class="em-value" id="em-mood">—</span>
-        </div>
-        <div class="em-item">
-          <span class="em-label">Deal Chance</span>
-          <span class="em-value" id="em-deal-pct">—</span>
-          <div class="em-deal-bar"><div class="em-deal-fill" id="em-deal-bar" style="width:0%"></div></div>
-        </div>
-        <div class="em-item em-next-wrap">
-          <span class="em-label">Recommended Move</span>
-          <span class="em-next" id="em-next">Waiting…</span>
-        </div>
+    <!-- Tension Meter -->
+    <div class="tension-meter" id="tension-meter">
+      <div class="tension-header">
+        <span class="em-mood" id="em-mood">—</span>
+        <span class="em-deal" id="em-deal-pct">—</span>
       </div>
+      <div class="tension-bar-wrap">
+        <div class="tension-bar-fill" id="tension-bar-fill"></div>
+      </div>
+      <div class="em-next" id="em-next">Waiting...</div>
     </div>
 
     <!-- Live Phrase Cheatsheet -->
@@ -899,16 +938,20 @@
     </div>
 
     <div class="mic-area">
-      <span class="mic-hint" id="mic-hint">Tap 🎙️ once to START recording · tap again to STOP</span>
+      <span class="mic-hint" id="mic-hint">Hold 🎙️ to record their voice · Release to translate</span>
       <div class="mic-wrapper">
         <button class="mic-btn disabled" id="mic-btn"
-          ontouchend="handleMicTap(event, false)"
-          onclick="handleMicTap(event, false)"
-          title="Tap to record local's voice">🎙️</button>
+          onpointerdown="startMicHold(event, false)"
+          onpointerup="stopMicHold(event)"
+          onpointerleave="stopMicHold(event)"
+          oncontextmenu="event.preventDefault();"
+          title="Hold to record local's voice">🎙️</button>
         <button class="whisper-btn disabled" id="whisper-btn"
-          ontouchend="handleMicTap(event, true)"
-          onclick="handleMicTap(event, true)"
-          title="Whisper a secret instruction">🤫</button>
+          onpointerdown="startMicHold(event, true)"
+          onpointerup="stopMicHold(event)"
+          onpointerleave="stopMicHold(event)"
+          oncontextmenu="event.preventDefault();"
+          title="Hold to whisper">🤫</button>
       </div>
       <button class="finish-btn" onclick="endSessionNormally()">
         ✅ Finish &amp; Analyse Session
@@ -953,6 +996,7 @@
     <div class="vocab-card">
       <div class="vocab-title">🧠 Survival Vocab from This Session</div>
       <div id="vocab-list"></div>
+      <button class="export-btn" onclick="exportVocabCSV()">📥 Export to CSV (Anki)</button>
     </div>
   </div>
 
@@ -1022,11 +1066,41 @@ function setMicEnabled(enabled) {
   if (enabled) {
     btn.classList.remove('disabled');
     wbtn.classList.remove('disabled');
-    document.getElementById('mic-hint').textContent = 'Tap 🎙️ once to START · tap again to STOP';
+    document.getElementById('mic-hint').textContent = 'Hold 🎙️ to record · Release to send';
   } else {
     btn.classList.add('disabled');
     wbtn.classList.add('disabled');
     if (isRecording) stopRecordingInternal();
+  }
+}
+
+// ── Audio Cues ──────────────────────────────────────────────
+function playTone(type) {
+  if (!audioCtx || audioCtx.state === 'suspended') return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  if (type === 'ready') {
+    osc.frequency.setValueAtTime(440, now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.3, now + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+    osc.start(now); osc.stop(now + 0.2);
+  } else if (type === 'done') {
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.exponentialRampToValueAtTime(440, now + 0.2);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.3, now + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+    osc.start(now); osc.stop(now + 0.2);
+  } else if (type === 'consult') {
+    osc.frequency.setValueAtTime(220, now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.4, now + 0.1);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+    osc.start(now); osc.stop(now + 0.5);
   }
 }
 
@@ -1044,6 +1118,18 @@ function addMsg(text, type, label) {
   const content = document.createElement('div');
   content.textContent = text;
   div.appendChild(content);
+  
+  if (type === 'ai-korean') {
+    const showBtn = document.createElement('button');
+    showBtn.textContent = '📱 Show Phone';
+    showBtn.style = 'display:block; background:transparent; border:1px solid rgba(255,255,255,0.4); color:#fff; border-radius:6px; padding:4px 8px; font-size:10px; margin-top:8px; cursor:pointer; font-weight:600;';
+    showBtn.onclick = () => {
+      document.getElementById('show-phone-text').textContent = text;
+      document.getElementById('show-phone-overlay').classList.remove('hidden');
+    };
+    div.appendChild(showBtn);
+  }
+  
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
 }
@@ -1063,6 +1149,7 @@ function showHITL(message, buttons) {
   });
   card.style.display = 'flex';
   appState = 'HITL';
+  playTone('consult');
 }
 
 function hideHITL() {
@@ -1074,6 +1161,34 @@ function sendDecision(choice) {
   hideHITL();
   setMicEnabled(true);
   appState = 'READY';
+
+  // ── Transcript confirm gate interception ──────────────────
+  if (confirmGateActive) {
+    confirmGateActive = false;
+    if (choice === '✅ Yes, correct') {
+      // Transcript was correct — show it in log, already sent to server
+      addMsg(pendingTranscript, 'local', '🎙️ Local said');
+      pendingTranscript = null;
+    } else if (choice === '✏️ Edit manually') {
+      // Prompt user to type the correct text
+      const corrected = prompt(`Edit the transcript:`, pendingTranscript || '');
+      if (corrected && corrected.trim()) {
+        addMsg(corrected.trim(), 'local', '🎙️ Local said (edited)');
+        // Send corrected text to server as a new turn
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ action: 'manual_input', text: corrected.trim() }));
+        }
+      }
+      pendingTranscript = null;
+    } else {
+      // ❌ Re-record — discard, let user try again
+      pendingTranscript = null;
+      setStatus('🎙️ Ready — tap mic to record again', '');
+    }
+    return;
+  }
+
+  // ── Normal HITL decision ──────────────────────────────────
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ action: 'user_decision', choice }));
   }
@@ -1141,6 +1256,14 @@ async function handlePhotoUpload(event) {
           : `✅ Goal auto-filled from photo!`;
         analyzeEl.style.borderColor = 'var(--green)';
         analyzeEl.style.color = 'var(--green)';
+
+        // Show photo thumbnail in header
+        const thumb = document.getElementById('header-thumb');
+        const icon = document.getElementById('header-icon');
+        thumb.src = base64;
+        thumb.style.display = 'block';
+        icon.style.display = 'none';
+
       } else {
         analyzeEl.textContent = '⚠️ Could not detect goal from photo. Please type it manually.';
       }
@@ -1174,25 +1297,59 @@ function dismissBriefing() {
   if (appState === 'BRIEFING') appState = 'READY';
 }
 
-// ── 🧠 Emotion Panel ────────────────────────────────────────
+// ── 🧠 Tension Meter ────────────────────────────────────────
 
 function updateEmotionPanel(mood, dealChance, nextMove) {
-  const panel = document.getElementById('emotion-panel');
+  const panel = document.getElementById('tension-meter');
   panel.classList.add('visible');
 
   const moodEl = document.getElementById('em-mood');
   const moodEmojis = { friendly:'😊 Friendly', neutral:'😐 Neutral', annoyed:'😤 Annoyed', busy:'⏩ Busy', uncertain:'🤔 Uncertain' };
   moodEl.textContent = moodEmojis[mood] || mood || '—';
-  moodEl.className = 'em-value ' + (mood || 'neutral');
 
   if (dealChance !== null && dealChance !== undefined) {
-    document.getElementById('em-deal-pct').textContent = dealChance + '%';
-    document.getElementById('em-deal-bar').style.width = dealChance + '%';
+    document.getElementById('em-deal-pct').textContent = dealChance + '% Deal';
+    const bar = document.getElementById('tension-bar-fill');
+    bar.style.width = dealChance + '%';
+    if (dealChance <= 30) bar.style.backgroundColor = 'var(--red)';
+    else if (dealChance <= 60) bar.style.backgroundColor = 'var(--yellow)';
+    else bar.style.backgroundColor = 'var(--green)';
   } else {
     document.getElementById('em-deal-pct').textContent = '—';
   }
 
   if (nextMove) document.getElementById('em-next').textContent = nextMove;
+}
+
+// ── Sliders ───────────────────────────────────────────────
+
+function updateSliders() {
+  const aggMap = {1: 'Polite', 2: 'Balanced', 3: 'Aggressive'};
+  const formMap = {1: 'Casual', 2: 'Standard (-요)', 3: 'Formal (-습니다)'};
+  document.getElementById('agg-val').textContent = aggMap[document.getElementById('agg-slider').value];
+  document.getElementById('form-val').textContent = formMap[document.getElementById('form-slider').value];
+}
+
+// ── Live Timer ────────────────────────────────────────────
+
+let sessionStartTime = 0;
+let sessionTimerInt = null;
+let currentTurnCount = 0;
+
+function startSessionTimer() {
+  sessionStartTime = Date.now();
+  currentTurnCount = 0;
+  clearInterval(sessionTimerInt);
+  sessionTimerInt = setInterval(() => {
+    const s = Math.floor((Date.now() - sessionStartTime) / 1000);
+    const m = Math.floor(s / 60).toString().padStart(2, '0');
+    const sec = (s % 60).toString().padStart(2, '0');
+    document.getElementById('session-timer').textContent = `${m}:${sec} (${currentTurnCount})`;
+  }, 1000);
+}
+
+function stopSessionTimer() {
+  clearInterval(sessionTimerInt);
 }
 
 // ── 📜 Phrase Cheatsheet ────────────────────────────────────
@@ -1212,7 +1369,9 @@ function updatePhraseList(phrases) {
   phrases.forEach(p => {
     const item = document.createElement('div');
     item.className = 'phrase-item';
+    const krSafe = (p.kr || '').replace(/'/g, "\\'");
     item.innerHTML = `
+      <button onclick="replayPhrase('${krSafe}')" style="background:transparent;border:none;cursor:pointer;font-size:14px;padding:2px;">🔊</button>
       <span class="phrase-kr">${p.kr || ''}</span>
       <span class="phrase-rom">${p.rom || ''}</span>
       <span class="phrase-en">${p.en || ''}</span>
@@ -1221,7 +1380,15 @@ function updatePhraseList(phrases) {
   });
 }
 
+function replayPhrase(text) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ action: 'speak_phrase', text: text }));
+  }
+}
+
 // ── 📊 Post-deal Done Screen ────────────────────────────────
+
+let lastVocab = null;
 
 function renderDoneScreen(msg, action) {
   const doneMap = {
@@ -1267,6 +1434,7 @@ function renderDoneScreen(msg, action) {
 
   // Vocab
   if (msg.vocab && Array.isArray(msg.vocab) && msg.vocab.length > 0) {
+    lastVocab = msg.vocab;
     const vList = document.getElementById('vocab-list');
     vList.innerHTML = '';
     msg.vocab.forEach(v => {
@@ -1288,6 +1456,32 @@ function renderDoneScreen(msg, action) {
     vocab:    msg.vocab,
     duration: analysis?.duration_mins,
   });
+}
+
+function exportVocabCSV() {
+  if (!lastVocab || !lastVocab.length) return;
+  let csv = "Korean,Meaning\\n";
+  lastVocab.forEach(v => {
+    csv += `"${(v.korean||'').replace(/"/g, '""')}","${(v.english||'').replace(/"/g, '""')}"\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `vocab_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+async function showStats() {
+  const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'anonymous';
+  try {
+    const res = await fetch(`/stats/${userId}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    alert(`📊 Your Negotiation Stats\n\nTotal Sessions: ${data.total_sessions || 0}\nTotal Wins: ${data.total_wins || 0}\nAvg Score: ${Math.round(data.avg_score || 0)}\nTotal Duration: ${Math.round(data.total_duration || 0)} mins`);
+  } catch (e) {
+    alert("Could not load stats: " + e.message);
+  }
 }
 
 // ── 💾 Session History (localStorage) ──────────────────────
@@ -1376,7 +1570,27 @@ function clearHistory() {
     '<div class="history-empty">History cleared.</div>';
 }
 
-// ── Preset Selection ────────────────────────────────────────
+// ── Transcription Confirm Gate (uses existing HITL card) ────
+// For short (≤4 word) Whisper outputs, reuse the working HITL
+// buttons instead of a separate broken overlay.
+
+let pendingTranscript = null;
+let confirmGateActive = false;
+
+function showTranscriptConfirm(text) {
+  pendingTranscript = text;
+  confirmGateActive = true;
+  // Reuse the existing HITL card — it already works perfectly
+  showHITL(`Did they say: "${text}" ?`, ['✅ Yes, correct', '✏️ Edit manually', '❌ Re-record']);
+}
+
+function confirmTranscript(action) {
+  // Not used directly — handled via sendDecision() below
+}
+
+function sendDictation() {
+  // Not used — kept for compatibility
+}
 
 function selectPreset(btn, contextType, goal) {
   document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('selected'));
@@ -1417,8 +1631,11 @@ async function startSession() {
   document.getElementById('score-card').classList.remove('visible');
   document.getElementById('vocab-container').style.display = 'none';
   document.getElementById('vocab-list').innerHTML = '';
-  document.getElementById('emotion-panel').classList.remove('visible');
+  document.getElementById('tension-meter').classList.remove('visible');
   document.getElementById('conv-log').innerHTML = '';
+  document.getElementById('session-timer').textContent = '00:00 (0)';
+  
+  startSessionTimer();
 
   showScreen('session-screen');
   setStatus('Connecting…', 'yellow');
@@ -1438,16 +1655,22 @@ function connectWS() {
 
   ws.onopen = () => {
     setStatus('Connected — preparing briefing…', 'green');
+    const aggMap = {1: 'Polite', 2: 'Balanced', 3: 'Aggressive'};
+    const formMap = {1: 'Casual', 2: 'Standard (-요)', 3: 'Formal (-습니다)'};
     ws.send(JSON.stringify({
       action:       'start_negotiation',
       goal:         selectedGoal,
       context_type: selectedType,
+      aggressiveness: aggMap[document.getElementById('agg-slider').value],
+      formality:    formMap[document.getElementById('form-slider').value],
+      user_id:      window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'anonymous'
     }));
   };
 
   ws.onmessage = handleWSMessage;
 
   ws.onclose = () => {
+    stopSessionTimer();
     if (appState !== 'DONE') {
       setStatus('Disconnected — tap Reset', 'red');
       setMicEnabled(false);
@@ -1480,9 +1703,13 @@ function handleWSMessage(event) {
     };
     const firstChar = (msg.text || '').charAt(0);
     setStatus(msg.text, dotMap[firstChar] || '');
+    if (msg.turn_count !== undefined) {
+      currentTurnCount = msg.turn_count;
+    }
     if (msg.text && (msg.text.includes('Ready') || msg.text.includes('🎙️'))) {
       setMicEnabled(true);
       appState = 'READY';
+      playTone('done');
     }
     return;
   }
@@ -1515,12 +1742,21 @@ function handleWSMessage(event) {
     return;
   }
 
+  // ── Transcription display handled by confirm gate below ──
+
+  // ── Transcription Confirm Gate ────────────────────────────
   if (action === 'transcription') {
-    addMsg(msg.text, 'local', msg.speaker === 'local' ? '🎙️ Local said' : '🎙️ You said');
+    const text = msg.text || '';
+    const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+    // For short/ambiguous responses (≤ 4 words), show a confirm gate
+    // so user can verify before the LLM acts on possibly wrong Whisper output
+    if (wordCount <= 4 && wordCount > 0 && msg.speaker === 'local') {
+      showTranscriptConfirm(text);
+    } else {
+      addMsg(text, 'local', '🎙️ Local said');
+    }
     return;
   }
-
-  if (action === 'kill_audio') {
     killAudio();
     return;
   }
@@ -1553,15 +1789,50 @@ function handleWSMessage(event) {
   }
 }
 
-// ── Mic: TAP-TO-TOGGLE ──────────────────────────────────────
+// ── Mic: WALKIE-TALKIE (Hold-to-record) ─────────────────────
 
-function handleMicTap(event, whisper) {
+let holdStart = 0;
+let holdAnimFrame = null;
+
+function startMicHold(event, whisper) {
   event.preventDefault();
   event.stopPropagation();
   const btn = document.getElementById(whisper ? 'whisper-btn' : 'mic-btn');
-  if (btn.classList.contains('disabled')) return;
-  if (isRecording) stopRecordingInternal();
-  else startRecordingNew(whisper);
+  if (btn.classList.contains('disabled') || isRecording) return;
+  
+  if (audioCtx?.state === 'suspended') audioCtx.resume();
+  playTone('ready');
+  holdStart = Date.now();
+  startRecordingNew(whisper);
+
+  // Radial fill animation
+  const duration = 15000; // max 15s before auto-stop
+  function anim() {
+    if (!isRecording) { btn.style.background = ''; return; }
+    const pct = Math.min(100, ((Date.now() - holdStart) / duration) * 100);
+    btn.style.background = `conic-gradient(var(--red) ${pct}%, var(--card) ${pct}%)`;
+    if (pct < 100) holdAnimFrame = requestAnimationFrame(anim);
+    else stopMicHold(event);
+  }
+  anim();
+}
+
+function stopMicHold(event) {
+  event.preventDefault();
+  if (!isRecording) return;
+  
+  const elapsed = Date.now() - holdStart;
+  if (elapsed < 300) {
+    // Too short, abort
+    killAudio();
+    stopRecordingInternal(true); // pass abort flag
+    return;
+  }
+  
+  cancelAnimationFrame(holdAnimFrame);
+  const btn = document.getElementById(isWhisperMode ? 'whisper-btn' : 'mic-btn');
+  btn.style.background = '';
+  stopRecordingInternal();
 }
 
 async function startRecordingNew(whisper = false) {
@@ -1606,13 +1877,11 @@ async function startRecordingNew(whisper = false) {
     btn.classList.add('recording');
 
     if (whisper) {
-      btn.textContent = '⏹️';
-      setStatus('🤫 Whispering to AI... tap again to send', 'yellow');
-      document.getElementById('mic-hint').textContent = 'Tap 🤫 again to stop whispering';
+      setStatus('🤫 Whispering to AI...', 'yellow');
+      document.getElementById('mic-hint').textContent = 'Release to send instructions';
     } else {
-      btn.textContent = '⏹️';
-      setStatus('🔴 Recording... tap again when they finish speaking', 'red');
-      document.getElementById('mic-hint').textContent = 'Tap again when they finish speaking';
+      setStatus('🔴 Recording...', 'red');
+      document.getElementById('mic-hint').textContent = 'Release when they finish speaking';
     }
 
   } catch (err) {
@@ -1625,7 +1894,7 @@ async function startRecordingNew(whisper = false) {
   }
 }
 
-function stopRecordingInternal() {
+function stopRecordingInternal(abort = false) {
   if (!isRecording) return;
   isRecording = false;
   appState    = 'READY';
@@ -1633,11 +1902,19 @@ function stopRecordingInternal() {
   const micBtn     = document.getElementById('mic-btn');
   const whisperBtn = document.getElementById('whisper-btn');
   micBtn.classList.remove('recording');
-  micBtn.textContent = '🎙️';
+  micBtn.style.background = '';
   whisperBtn.classList.remove('recording');
-  whisperBtn.textContent = '🤫';
-  setStatus('👂 Processing...', 'yellow');
-  document.getElementById('mic-hint').textContent = 'Tap 🎙️ once to START · tap again to STOP';
+  whisperBtn.style.background = '';
+  
+  if (abort) {
+    setStatus('Ready', '');
+    document.getElementById('mic-hint').textContent = 'Hold 🎙️ to record · Release to send';
+    if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream = null;
+  } else {
+    setStatus('👂 Processing...', 'yellow');
+    document.getElementById('mic-hint').textContent = 'Hold 🎙️ to record · Release to send';
+  }
 }
 
 // ── Audio Playback (Blob URL — works in Telegram WebView) ───

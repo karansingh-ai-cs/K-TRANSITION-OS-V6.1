@@ -9,58 +9,112 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-BASE_DIR = Path(__file__).resolve().parent      # always the project root
-DATA_DIR = BASE_DIR / "data"                    # always points to data/ folder
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
 
 # ── Telegram ──────────────────────────────────────────────────────────────────
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "YOUR_TELEGRAM_TOKEN_HERE")
 
-# ── AI: Groq (primary) ────────────────────────────────────────────────────────
-# Free key: console.groq.com — no credit card needed
-# Can be a single key, or multiple keys separated by commas
-_groq_keys_str = os.getenv("GROQ_API_KEY", "")
-GROQ_API_KEYS = [k.strip() for k in _groq_keys_str.split(",") if k.strip()]
+# ── AI Provider Keys ──────────────────────────────────────────────────────────
+# Strictly using ONE key per provider to respect TOS and avoid abuse flags.
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").split(",")[0].strip()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").split(",")[0].strip()
 
-import random
-def get_groq_key():
-    """Return a random Groq API key to load-balance and avoid rate limits."""
-    return random.choice(GROQ_API_KEYS) if GROQ_API_KEYS else ""
+def get_groq_key() -> str:
+    return GROQ_API_KEY
 
+def get_gemini_key() -> str:
+    return GEMINI_API_KEY
+
+def lock_groq_key(api_key: str) -> None:
+    """Log a Groq 429 rate limit event. Single-key mode = no rotation, just log."""
+    import logging
+    logging.getLogger(__name__).warning("Groq 429 rate limit hit — backing off. Key: ...%s", api_key[-6:] if api_key else "none")
+
+def lock_gemini_key(api_key: str) -> None:
+    """Log a Gemini 429 rate limit event. Single-key mode = no rotation, just log."""
+    import logging
+    logging.getLogger(__name__).warning("Gemini 429 rate limit hit — backing off. Key: ...%s", api_key[-6:] if api_key else "none")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MULTI-TIER MODEL ROUTING ARCHITECTURE
+# ══════════════════════════════════════════════════════════════════════════════
+# Task              | Primary Model          | RPM | RPD    | TPM
+# ------------------+------------------------+-----+--------+-----------
+# Buddy/Casual Chat | Gemma 4 27B (Gemini)   |  15 | 1,500  | UNLIMITED
+# Complex Questions | Qwen3-32B (Groq)       |  60 | 1,000  | 6K
+# Quiz Generation   | LLaMA 3.1 8B (Groq)   |  30 | 14,400 | 6K
+# Image Analysis    | Gemini 2.5 Flash       |   5 | 20     | 250K
+# News Summaries    | LLaMA 3.1 8B (Groq)   |  30 | 14,400 | 6K
+# Voice Transcribe  | Whisper Turbo (Groq)   |  20 | 2,000  | —
+
+# ── GEMINI MODELS ─────────────────────────────────────────────────────────────
+# Tier A: Unlimited TPM + 1500 RPD — PRIMARY buddy/casual workhorse
+GEMINI_BUDDY_MODEL  = "gemma-4-27b-it"        # 15 RPM, Unlimited TPM, 1500 RPD
+GEMINI_BUDDY_BACKUP = "gemma-4-31b-it"         # 15 RPM, Unlimited TPM, 1500 RPD
+# Tier B: 500 RPD — moderate volume tasks
+GEMINI_FLASH_LITE   = "gemini-3.1-flash-lite"  # 15 RPM, 250K TPM, 500 RPD
+# Tier C: 20 RPD — SPARINGLY, vision/complex only
+GEMINI_VISION_MODEL = "gemini-2.5-flash"       # 5 RPM, 250K TPM, 20 RPD — IMAGE ONLY
+GEMINI_MODEL        = "gemini-2.5-flash-lite"  # 10 RPM, 250K TPM, 20 RPD — final fallback
+# Tier D: Extra text fallbacks (5 RPM, 20 RPD each)
+GEMINI_35_FLASH     = "gemini-3.5-flash"       # 5 RPM, 250K TPM, 20 RPD
+GEMINI_3_FLASH      = "gemini-3-flash"         # 5 RPM, 250K TPM, 20 RPD
+
+# TTS (Text-to-Speech) — for Negotiator voice output
+GEMINI_TTS_MODEL    = "gemini-2.5-flash-tts"       # 3 RPM, 10 RPD, 10K TPM
+GEMINI_TTS_BACKUP   = "gemini-3.1-flash-tts"       # 3 RPM, 10 RPD, 10K TPM (backup TTS)
+
+# Live Audio Dialog — UNLIMITED RPM + RPD! For real-time Negotiator voice sessions
+GEMINI_LIVE_MODEL   = "gemini-2.5-flash-live"      # Unlimited RPM, 1M TPM, Unlimited RPD
+GEMINI_LIVE_BACKUP  = "gemini-3-flash-live"        # Unlimited RPM, 65K TPM, Unlimited RPD
+
+# Embeddings — semantic search / FAQ matching (saves AI calls!)
+GEMINI_EMBED_MODEL  = "gemini-embedding-2"         # 100 RPM, 30K TPM, 1K RPD
+GEMINI_EMBED_BACKUP = "gemini-embedding-1"         # 100 RPM, 30K TPM, 1K RPD
+
+# Image Generation — for quiz flashcards / cultural illustrations
+IMAGEN_MODEL        = "imagen-4-fast-generate"     # 25 RPD — fast generation
+IMAGEN_HQ_MODEL     = "imagen-4-generate"          # 25 RPD — higher quality
+
+# ── GROQ MODELS ───────────────────────────────────────────────────────────────
+GROQ_LIGHT_MODEL  = "llama-3.1-8b-instant"          # 30 RPM, 14,400 RPD — quiz/summaries
+GROQ_FAST_MODEL   = "qwen/qwen3-32b"                # 60 RPM (!), 1K RPD — concurrent complex
+GROQ_HEAVY_MODEL  = "llama-3.3-70b-versatile"       # 30 RPM, 1K RPD — deep reasoning
+GROQ_SCOUT_MODEL  = "meta-llama/llama-4-scout-17b-16e-instruct"  # 30 RPM, 1K RPD, 30K TPM
+GROQ_ARABIC_MODEL = "allam-2-7b"                    # 30 RPM, 7K RPD — Arabic speakers
+GROQ_GPT120B      = "openai/gpt-oss-120b"           # 30 RPM, 1K RPD — extra complex fallback
+GROQ_GPT20B       = "openai/gpt-oss-20b"            # 30 RPM, 1K RPD — medium complexity
+GROQ_GUARD_MODEL  = "meta-llama/llama-prompt-guard-2-86m"  # 30 RPM, 14.4K RPD — safety filter!
+
+# Groq general fallback chain (tried in this order on 429/fail)
 GROQ_MODELS = [
-    "llama-3.3-70b-versatile",    # Best, but strict limits (1K requests/day)
-    "llama-3.1-8b-instant",       # Great fallback (14.4K requests/day)
-    "gemma2-9b-it",               # Great fallback (14.4K requests/day)
-    "mixtral-8x7b-32768"          # Final fallback (14.4K requests/day)
+    GROQ_FAST_MODEL,    # qwen3-32b: 60 RPM — handles concurrency best
+    GROQ_LIGHT_MODEL,   # llama-3.1-8b: 14.4K RPD — saves heavy quota
+    GROQ_SCOUT_MODEL,   # llama-4-scout: 30K TPM — handles long context
+    GROQ_GPT120B,       # gpt-oss-120b: extra complex reasoning
+    GROQ_HEAVY_MODEL,   # llama-3.3-70b: best quality, limited daily
 ]
-GROQ_LIGHT_MODEL = "llama-3.1-8b-instant"  # For simple tasks (quizzes, briefings) to save 70B quota
 
-WHISPER_MODEL = "whisper-large-v3"             # for voice note transcription
+# ── Voice Transcription ───────────────────────────────────────────────────────
+WHISPER_MODEL = "whisper-large-v3-turbo"   # 20 RPM, 2K RPD — faster than v3
 
-# ── AI: Gemini (fallback + image vision) ─────────────────────────────────────
-# Free key: aistudio.google.com — no credit card needed
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL   = "gemini-2.0-flash-lite"       # lighter model, less quota burn
-
-# ── Database ──────────────────────────────────────────────────────────────────
-DB_FILE = BASE_DIR / os.getenv("DB_FILE", "ktransition.db")  # always absolute path
-
-# ── News ──────────────────────────────────────────────────────────────────────
-NEWS_CACHE_TIME  = 1800   # 30 minutes
-
-# ── Logging ───────────────────────────────────────────────────────────────────
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+# ── Database & Settings ───────────────────────────────────────────────────────
+DB_FILE              = BASE_DIR / os.getenv("DB_FILE", "ktransition.db")
+NEWS_CACHE_TIME      = 1800
+LOG_LEVEL            = os.getenv("LOG_LEVEL", "INFO")
+MAX_MESSAGES_PER_MINUTE = 15
 
 # ── Feature Flags ─────────────────────────────────────────────────────────────
 FEATURE_KOREAN_LESSONS = True
 FEATURE_NEWS           = True
 FEATURE_MAPS           = True
 FEATURE_SCHEDULE       = True
-FEATURE_IMAGE_AI       = True   # requires GEMINI_API_KEY
-FEATURE_VOICE_NOTES    = True   # requires GROQ_API_KEY (Whisper)
-
-# ── Rate Limiting ─────────────────────────────────────────────────────────────
-MAX_MESSAGES_PER_MINUTE = 15
+FEATURE_IMAGE_AI       = True
+FEATURE_VOICE_NOTES    = True
 
 # ── Bot Identity ──────────────────────────────────────────────────────────────
 BOT_NAME    = "한국 선배 (Korean Senior)"
 BOT_VERSION = "6.0"
+

@@ -2258,7 +2258,7 @@ def main():
     def _start_negotiator_server():
         """Run negotiator FastAPI on PORT. Serves MiniApp + keeps Render alive."""
         import sys
-        negotiator_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'negotiator')
+        negotiator_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'negotiator2')
         if os.path.isdir(negotiator_dir):
             sys.path.insert(0, negotiator_dir)
             try:
@@ -2271,7 +2271,7 @@ def main():
                 logger.error("Negotiator server failed: %s — falling back to simple keep-alive", e)
                 _simple_keepalive()
         else:
-            logger.warning("negotiator/ folder not found — using simple keep-alive")
+            logger.warning("negotiator2/ folder not found — using simple keep-alive")
             _simple_keepalive()
 
     def _simple_keepalive():
@@ -2289,7 +2289,12 @@ def main():
             logger.info("Keep-alive server on port %d", port)
             httpd.serve_forever()
 
-    threading.Thread(target=_start_negotiator_server, daemon=True).start()
+    # Monorepo Deployment Switch
+    if os.getenv("RUN_NEGOTIATOR", "true").lower() == "true":
+        threading.Thread(target=_start_negotiator_server, daemon=True).start()
+    else:
+        logger.info("RUN_NEGOTIATOR is false — starting lightweight keep-alive only.")
+        threading.Thread(target=_simple_keepalive, daemon=True).start()
 
     logger.info("Bot running! Press CTRL+C to stop.")
     

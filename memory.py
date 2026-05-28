@@ -8,7 +8,7 @@ from datetime import datetime, UTC
 
 logger = logging.getLogger(__name__)
 
-MAX_HISTORY_LENGTH = 30   # keep more history for better context
+MAX_HISTORY_LENGTH = 6   # Reduce history to 6 messages to save API tokens heavily
 
 
 from config import DB_FILE
@@ -258,7 +258,7 @@ def save_message(user_id, role, content):
         conn.commit()
 
 
-def get_history(user_id, limit=20):
+def get_history(user_id, limit=6):
     """Get conversation history. Uses last `limit` messages for AI context."""
     with get_conn() as conn:
         rows = conn.execute(
@@ -287,7 +287,7 @@ def save_buddy_message(user_id, role, content):
         conn.commit()
 
 
-def get_buddy_history(user_id, limit=20):
+def get_buddy_history(user_id, limit=6):
     """Get only the buddy conversation history."""
     with get_conn() as conn:
         rows = conn.execute(

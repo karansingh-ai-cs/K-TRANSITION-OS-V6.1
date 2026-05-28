@@ -39,16 +39,25 @@ from fastapi.responses import HTMLResponse, JSONResponse
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
+# Add parent directory to path so we can import db
+import sys
+sys.path.append(str(_this_dir.parent))
+try:
+    from db import get_conn
+except ImportError:
+    logger.warning("Could not import db.py, persistence will be disabled.")
+    get_conn = None
+
 # ── Config ─────────────────────────────────────────────────────────────────────
 
 _groq_keys_str       = os.getenv("GROQ_API_KEY", "")
 GROQ_API_KEYS        = [k.strip() for k in _groq_keys_str.split(",") if k.strip()]
-WHISPER_MODEL        = "whisper-large-v3"
+WHISPER_MODEL        = "whisper-large-v3-turbo"
 GROQ_MODELS = [
     "llama-3.3-70b-versatile",
+    "qwen/qwen3-32b",
     "llama-3.1-8b-instant",
-    "gemma2-9b-it",
-    "mixtral-8x7b-32768"
+    "meta-llama/llama-4-scout-17b-16e-instruct",
 ]
 GROQ_LIGHT_MODEL = "llama-3.1-8b-instant"
 VISION_MODEL         = os.getenv("VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
@@ -64,9 +73,8 @@ ORPHEUS_KOREAN_VOICE = os.getenv("ORPHEUS_KOREAN_VOICE", "Seraphina")   # Korean
 ORPHEUS_ENGLISH_VOICE= os.getenv("ORPHEUS_ENGLISH_VOICE", "Aoede")      # English voice
 # ^ Update these voice names from https://console.groq.com/docs/text-speech
 
-import random
-def get_groq_key():
-    return random.choice(GROQ_API_KEYS) if GROQ_API_KEYS else None
+# Import our safe rotator from config to prevent bans
+from config import get_groq_key
 
 def get_groq_client():
     key = get_groq_key()
@@ -79,6 +87,13 @@ You speak Korean DIRECTLY to a Korean person on behalf of an international stude
 
 STUDENT'S MISSION: {mission_goal}
 SITUATION TYPE: {context_type}
+
+USER PREFERENCES:
+- Aggressiveness: {aggressiveness} (If Polite: do not push prices hard. If Aggressive: use market-standard tactics and push harder.)
+- Formality: {formality} (Casual: -아/어. Standard: -요. Formal: -습니다.)
+
+PRICE HISTORY (Do not hallucinate prices, use these):
+{price_history}
 
 {tone_modifier}
 
@@ -272,15 +287,55 @@ async def get_index():
 
 # ── Session State ──────────────────────────────────────────────────────────────
 
+def save_session_data(user_id: str, goal: str, context_type: str, outcome: str, duration: float, score: int):
+    if not get_conn:
+        return
+    try:
+        with get_conn() as conn:
+            conn.execute(
+                "INSERT INTO negotiator_sessions (user_id, session_date, goal, type, outcome, duration_mins, score) VALUES (?, datetime('now'), ?, ?, ?, ?, ?)",
+                (user_id, goal, context_type, outcome, duration, score)
+            )
+            is_win = 1 if score >= 70 else 0
+            conn.execute("""
+                INSERT INTO negotiator_stats (user_id, total_sessions, total_wins, total_duration, avg_score)
+                VALUES (?, 1, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    total_sessions = total_sessions + 1,
+                    total_wins = total_wins + excluded.total_wins,
+                    total_duration = total_duration + excluded.total_duration,
+                    avg_score = ((avg_score * total_sessions) + excluded.avg_score) / (total_sessions + 1)
+            """, (user_id, is_win, duration, score))
+    except Exception as e:
+        logger.error(f"Failed to save session data to DB: {e}")
+
 class AssistantSession:
-    def __init__(self, websocket: WebSocket, goal: str, context_type: str = "general"):
+    def __init__(self, websocket: WebSocket, goal: str, context_type: str = "general", aggressiveness: str = "Balanced", formality: str = "Standard (-요)"):
         self.ws           = websocket
         self.goal         = goal
         self.context_type = context_type
+        self.aggressiveness = aggressiveness
+        self.formality    = formality
+        self.user_id      = "anonymous"
         self.groq_client  = get_groq_client()
 
         self.memory: list[dict] = []
+        self.price_history: list[str] = []
+        self.price_pcts: list[float] = []          # numeric % history for sanity checks
         self.audio_buffer   = bytearray()
+
+        # ── Confirmed Facts Ledger ─────────────────────────────
+        # Once something is confirmed, it's injected into every subsequent
+        # system prompt as "DO NOT ASK AGAIN". Prevents the AI from asking
+        # about side effects 3 times in one pharmacy session.
+        self.confirmed_facts: dict[str, str] = {}
+
+        # ── Entity Tracker ─────────────────────────────────────
+        # Sticky names so "Chastron Cold" doesn't change to "가래Cold"
+        self.entity_names: dict[str, str] = {}     # {"medicine": "차스트론 콜드", "product": "가방"}
+
+        # ── Negotiation State ──────────────────────────────────
+        self.negotiation_state: str = "GREETING"   # GREETING → PITCH → COUNTER → FINAL → CLOSING
 
         self.barge_in_event = asyncio.Event()
         self.hitl_event     = asyncio.Event()
@@ -307,11 +362,36 @@ class AssistantSession:
 
     def build_system_prompt(self) -> str:
         tone = TONE_MODIFIERS.get(self.context_type, TONE_MODIFIERS["general"])
-        return UNIVERSAL_SYSTEM_PROMPT.format(
+        price_str = " → ".join(self.price_history) if self.price_history else "No prices mentioned yet."
+
+        # ── Confirmed facts block ──────────────────────────────
+        confirmed_block = ""
+        if self.confirmed_facts:
+            facts = "\n".join(f"  - {k}: {v}" for k, v in self.confirmed_facts.items())
+            confirmed_block = (
+                "\n━━━━━ CONFIRMED FACTS — NEVER ASK ABOUT THESE AGAIN ━━━━━\n"
+                f"{facts}\n"
+                "These have been confirmed by the local. Do NOT re-ask them.\n"
+            )
+
+        # ── Entity names — use these exact spellings always ────
+        entity_block = ""
+        if self.entity_names:
+            names = ", ".join(f"{k}={v}" for k, v in self.entity_names.items())
+            entity_block = f"\n📌 USE THESE EXACT NAMES (do not change): {names}\n"
+
+        # ── Negotiation state ──────────────────────────────────
+        state_block = f"\n📍 CURRENT STATE: {self.negotiation_state}\n"
+
+        base = UNIVERSAL_SYSTEM_PROMPT.format(
             mission_goal=self.goal,
             context_type=self.context_type,
             tone_modifier=tone,
+            aggressiveness=self.aggressiveness,
+            formality=self.formality,
+            price_history=price_str,
         )
+        return base + confirmed_block + entity_block + state_block
 
 # ── Noise Filter ───────────────────────────────────────────────────────────────
 
@@ -324,6 +404,45 @@ def is_valid_transcription(text: str) -> bool:
         logger.warning(f"Noise filter rejected: {text!r} (valid_ratio={ratio:.2f})")
         return False
     return True
+
+def sanitize_korean(text: str) -> str:
+    """Strip any non-Korean script from speech output.
+    Keeps: Hangul, spaces, punctuation, numbers (for prices like 2만원, 20%).
+    Removes: Hindi/Devanagari, Chinese, Arabic, Latin letters mixed into Korean words.
+    """
+    if not text:
+        return text
+    # Allow: Hangul blocks, spaces, punctuation, digits, currency/percent symbols
+    cleaned = re.sub(
+        r'[^\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F\s.,!?~…·。\-0-9₩%]',
+        '',
+        text
+    )
+    # Collapse multiple spaces
+    return re.sub(r'\s+', ' ', cleaned).strip()
+
+
+def price_sanity_check(new_pct: float, history_pcts: list[float]) -> bool:
+    """Return False if a price jump is physically impossible (>40% in one turn)."""
+    if not history_pcts:
+        return True
+    last = history_pcts[-1]
+    return abs(new_pct - last) <= 40
+
+
+def extract_pct_from_text(text: str) -> float | None:
+    """Extract a percentage number from transcription text."""
+    m = re.search(r'(\d{1,3})\s*(?:percent|%|퍼센트)', text, re.IGNORECASE)
+    if m:
+        return float(m.group(1))
+    return None
+
+
+def extract_prices(text: str) -> list[str]:
+    # Matches formats like 22,000원, 2만원, ₩22000, 2만 5천원
+    pattern = r'(₩\s*\d+(?:,\d{3})*|\d+(?:,\d{3})*\s*원|\d+\s*만\s*\d*\s*천?\s*원)'
+    matches = re.findall(pattern, text)
+    return [m.strip() for m in matches]
 
 # ── TTS: Orpheus (Groq) ────────────────────────────────────────────────────────
 
@@ -481,19 +600,44 @@ async def analyze_image(request: Request):
 async def run_llm(session: AssistantSession, user_input: str) -> dict:
     if user_input:
         session.memory.append({"role": "user", "content": user_input})
+        prices = extract_prices(user_input)
+        if prices:
+            session.price_history.extend(prices)
+            await session.send_json({"action": "status", "text": f"💰 Price spotted: {prices[-1]}"})
+
+        # ── Price sanity check ─────────────────────────────────
+        pct = extract_pct_from_text(user_input)
+        if pct is not None:
+            if not price_sanity_check(pct, session.price_pcts):
+                logger.warning(f"Price sanity FAIL: {pct}% vs history {session.price_pcts}. Flagging.")
+                await session.send_json({
+                    "action": "status",
+                    "text": f"⚠️ Heard: {pct}% — did they really say {pct}%? (history: {' → '.join(str(p)+'%' for p in session.price_pcts[-3:])})"
+                })
+            else:
+                session.price_pcts.append(pct)
+
     system = session.build_system_prompt()
 
-    raw = None
+    raw = ""
     for model in GROQ_MODELS:
         try:
             response = await session.groq_client.chat.completions.create(
                 model=model,
                 messages=[{"role": "system", "content": system}, *session.memory[-12:]],
                 max_tokens=700,
-                temperature=0.6,
+                temperature=0.3,   # ← was 0.6; lower = more consistent Korean output
                 response_format={"type": "json_object"},
+                stream=True
             )
-            raw = response.choices[0].message.content
+            first_chunk = True
+            async for chunk in response:
+                if first_chunk:
+                    await session.send_json({"action": "status", "text": "🤔 Thinking..."})
+                    first_chunk = False
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    raw += delta
             break
         except Exception as e:
             if "429" in str(e):
@@ -505,11 +649,38 @@ async def run_llm(session: AssistantSession, user_input: str) -> dict:
     if raw:
         try:
             parsed = json.loads(raw)
+
+            # ── CRITICAL: Sanitize Korean — strip Hindi/Chinese/etc ──
+            if parsed.get("korean_speech"):
+                original = parsed["korean_speech"]
+                parsed["korean_speech"] = sanitize_korean(original)
+                if parsed["korean_speech"] != original:
+                    logger.warning(f"sanitize_korean removed foreign chars: {original!r} → {parsed['korean_speech']!r}")
+
+            # ── Auto-advance negotiation state ─────────────────────
+            action = parsed.get("action", "SPEAK")
+            english = parsed.get("english_update", "").lower()
+            if session.negotiation_state == "GREETING" and session.turn_count >= 1:
+                session.negotiation_state = "PITCH"
+            elif session.negotiation_state == "PITCH" and any(w in english for w in ["offer", "counter", "percent", "%", "price"]):
+                session.negotiation_state = "COUNTER"
+            elif session.negotiation_state == "COUNTER" and any(w in english for w in ["final", "last", "최저", "can't go lower"]):
+                session.negotiation_state = "FINAL"
+            elif action == "CONSULT_USER" and session.negotiation_state == "FINAL":
+                session.negotiation_state = "CLOSING"
+
             session.memory.append({"role": "assistant", "content": raw})
             session.turn_count += 1
+
+            # Track AI prices too
+            ai_kr = parsed.get("korean_speech", "")
+            ai_prices = extract_prices(ai_kr)
+            if ai_prices:
+                session.price_history.extend(ai_prices)
+
             return parsed
         except json.JSONDecodeError as e:
-            logger.error(f"LLM JSON parse failed: {e}")
+            logger.error(f"LLM JSON parse failed: {e} | Raw: {raw}")
 
     logger.error("All LLM models failed or returned invalid JSON.")
     return {
@@ -640,11 +811,13 @@ async def run_turn(session: AssistantSession, user_input: str):
 
     try:
         if user_input:
-            await session.send_json({
-                "action": "transcription",
-                "text": user_input,
-                "speaker": "local"
-            })
+            # Don't show internal HITL decisions as "Local said"
+            if not user_input.startswith("[STUDENT DECISION]"):
+                await session.send_json({
+                    "action": "transcription",
+                    "text": user_input,
+                    "speaker": "local"
+                })
 
         await session.send_json({"action": "status", "text": "🤔 Thinking..."})
         llm_result     = await run_llm(session, f"The person said: {user_input}" if user_input else "")
@@ -690,13 +863,23 @@ async def run_turn(session: AssistantSession, user_input: str):
 
             if session.consult_depth > 2:
                 logger.warning("CONSULT_USER loop detected — forcing graceful close")
-                session.consult_depth = 0
+                # ← BUG FIX: was resetting to 0 HERE, causing infinite loops
                 session.is_processing = False
                 await run_turn(session, "The student says to accept the current situation gracefully and wrap up the conversation politely.")
                 return
 
             choice = await show_hitl_buttons(session, english_update, hitl_buttons)
-            await stream_tts(session, f"You chose: {choice}. Continuing.", ENGLISH_TTS_VOICE)
+
+            # ── Save confirmed facts when user taps "Confirm" ──
+            confirm_words = {"confirm, proceed", "yes, proceed", "accept the price", "that's fine"}
+            if choice.lower() in confirm_words and english_update:
+                # Summarise what was just confirmed and save to ledger
+                fact_key = f"turn_{session.turn_count}"
+                session.confirmed_facts[fact_key] = english_update[:120]
+                logger.info(f"Confirmed fact saved: {fact_key} = {english_update[:120]}")
+
+            # Speak user's choice in English only — DON'T send it as a "Local said" message
+            await stream_tts(session, f"You chose: {choice}.", ENGLISH_TTS_VOICE)
 
             cancel_words = {"walk away", "cancel", "leave", "no thanks"}
             if choice.lower() in cancel_words:
@@ -706,9 +889,11 @@ async def run_turn(session: AssistantSession, user_input: str):
                 await session.send_json({"action": "session_ended", "result": "cancelled"})
                 return
 
+            # ← BUG FIX: reset consult_depth only when user gives a non-cancel answer
             session.consult_depth = 0
             session.is_processing = False
-            await run_turn(session, f"Student's decision: {choice}")
+            # ← BUG FIX: tag as student decision so it doesn't appear as "Local said"
+            await run_turn(session, f"[STUDENT DECISION] {choice}")
             return
 
         session.consult_depth = 0
@@ -717,7 +902,11 @@ async def run_turn(session: AssistantSession, user_input: str):
             await session.send_json({"action": "english_update", "text": english_update})
             await stream_tts(session, english_update, ENGLISH_TTS_VOICE)
 
-        await session.send_json({"action": "status", "text": "🎙️ Ready — tap mic to record their response"})
+        await session.send_json({
+            "action": "status", 
+            "text": "🎙️ Ready — tap mic to record their response",
+            "turn_count": session.turn_count
+        })
 
     finally:
         session.is_processing = False
@@ -755,7 +944,10 @@ async def negotiate_ws(websocket: WebSocket):
                 if action == "start_negotiation":
                     goal         = data.get("goal", "Help the student communicate.")
                     context_type = data.get("context_type", "general")
-                    session      = AssistantSession(websocket, goal, context_type)
+                    aggressiveness = data.get("aggressiveness", "Balanced")
+                    formality      = data.get("formality", "Standard (-요)")
+                    session      = AssistantSession(websocket, goal, context_type, aggressiveness, formality)
+                    session.user_id = str(data.get("user_id", "anonymous"))
 
                     await session.send_json({"action": "status", "text": "🤔 Preparing your briefing..."})
 
@@ -862,6 +1054,15 @@ async def negotiate_ws(websocket: WebSocket):
 
                         # Post-deal analysis
                         analysis = await generate_post_deal_analysis(session)
+                        
+                        score = analysis.get("score", 0)
+                        duration = analysis.get("duration_mins", 0)
+                        outcome = analysis.get("summary", "")
+                        
+                        import asyncio
+                        asyncio.create_task(asyncio.to_thread(
+                            save_session_data, session.user_id, session.goal, session.context_type, outcome, duration, score
+                        ))
 
                         session.is_done = True
                         await session.send_json({
@@ -882,6 +1083,20 @@ async def negotiate_ws(websocket: WebSocket):
                         session.hitl_choice = data.get("choice", "Cancel")
                         session.hitl_event.set()
 
+                # ── Manual input (edited transcript from confirm gate) ─
+                elif action == "manual_input":
+                    text = data.get("text", "").strip()
+                    if session and text and not session.is_done:
+                        asyncio.create_task(run_turn(session, text))
+
+                # ── Speak Phrase ───────────────────────────────
+                elif action == "speak_phrase":
+                    text = data.get("text")
+                    if session and text:
+                        await session.send_json({"action": "status", "text": "🗣️ Speaking phrase..."})
+                        await stream_tts(session, text, KOREAN_TTS_VOICE)
+                        await session.send_json({"action": "status", "text": "🎙️ Ready — tap mic to record their response"})
+
                 # ── Reset ──────────────────────────────────────
                 elif action == "reset":
                     if session:
@@ -900,6 +1115,21 @@ async def negotiate_ws(websocket: WebSocket):
             pass
 
 
+@app.get("/stats/{user_id}")
+async def get_stats(user_id: str):
+    if not get_conn:
+        return JSONResponse({"error": "DB not configured"}, status_code=500)
+    try:
+        with get_conn() as conn:
+            cur = conn.execute("SELECT * FROM negotiator_stats WHERE user_id = ?", (user_id,))
+            row = cur.fetchone()
+            if row:
+                return JSONResponse(dict(row))
+            return JSONResponse({"total_sessions": 0, "total_wins": 0, "total_duration": 0, "avg_score": 0})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 # ── STT ────────────────────────────────────────────────────────────────────────
 
 async def transcribe_audio(session: AssistantSession, audio_bytes: bytes) -> str:
@@ -910,11 +1140,42 @@ async def transcribe_audio(session: AssistantSession, audio_bytes: bytes) -> str
     if session.groq_client:
         try:
             file_obj = io.BytesIO(audio_bytes)
+            # Build a context-aware prompt so Whisper accurately catches numbers and domain words
+            context_hints = {
+                "bargain":    "Discount negotiation. 할인 퍼센트 원 만원 천원. Numbers 10 15 17 20 25 30 percent. 안돼요 최저가 손님 사장님 깎아주세요.",
+                "pharmacy":   "Pharmacy. Medicine names, dosage. 하루에 두 번 부작용 약 처방 밀리그램. Side effects dosage twice daily after meals.",
+                "food_order": "Restaurant. Menu items ingredients. 돼지고기 소고기 닭고기 채식 고수 알레르기 빼주세요.",
+                "directions": "Directions. 왼쪽 오른쪽 직진 횡단보도 지하철 버스 정류장 미터.",
+                "transport":  "Transport. Taxi bus subway. 얼마예요 미터기 목적지 정류장 환승.",
+                "official":   "Official document. Formal Korean. 서류 신청 접수 처리 기간 영업일.",
+                "landlord":   "Apartment landlord. 보증금 월세 수리 고장 보일러 화장실.",
+            }
+            whisper_prompt = context_hints.get(session.context_type,
+                "Korean conversation, may include English. 안녕하세요 감사합니다. Numbers and prices matter.")
+
             transcript = await session.groq_client.audio.transcriptions.create(
                 model=WHISPER_MODEL,
                 file=("voice.ogg", file_obj, "audio/ogg"),
-                prompt="Korean conversation or English. 안녕하세요. 감사합니다. Hello.",
+                prompt=whisper_prompt,
+                response_format="verbose_json"
             )
+            
+            # Confidence gating
+            if hasattr(transcript, "segments") and transcript.segments:
+                logprobs = []
+                for s in transcript.segments:
+                    # Depending on Groq SDK version, it could be a dict or object
+                    if isinstance(s, dict) and "avg_logprob" in s:
+                        logprobs.append(s["avg_logprob"])
+                    elif hasattr(s, "avg_logprob"):
+                        logprobs.append(s.avg_logprob)
+                        
+                if logprobs:
+                    mean_logprob = sum(logprobs) / len(logprobs)
+                    if mean_logprob < -1.0:
+                        logger.warning(f"Whisper confidence too low ({mean_logprob:.2f}). Dropped.")
+                        return ""
+                        
             return transcript.text.strip()
         except Exception as e:
             logger.warning(f"Whisper STT failed/unavailable: {e}. Falling back to Free Google STT.")

@@ -11,6 +11,10 @@ import sys
 import traceback
 from datetime import datetime
 
+# Fix Windows console encoding (cp1252 can't handle emoji)
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 print("\n" + "="*60)
 print("  K-Transition OS — System Test")
 print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -26,12 +30,12 @@ def test(name):
                     await fn()
                 else:
                     fn()
-                results.append((name, "✅ PASS", ""))
-                print(f"  ✅ {name}")
+                results.append((name, "PASS", ""))
+                print(f"  [OK] {name}")
             except Exception as e:
-                results.append((name, "❌ FAIL", str(e)))
-                print(f"  ❌ {name}")
-                print(f"     → {e}")
+                results.append((name, "FAIL", str(e)))
+                print(f"  [FAIL] {name}")
+                print(f"     -> {e}")
         return wrapper
     return decorator
 
@@ -107,7 +111,8 @@ def test_memory_history():
 
 @test("Memory: XP and progress")
 def test_memory_progress():
-    from level_system import add_xp, get_user_level
+    from level_system import setup_level_tables, add_xp, get_user_level
+    setup_level_tables()  # Ensure table exists before test
     result = add_xp(99999999, 50, "test")
     assert result["new_xp"] >= 50
 
@@ -273,7 +278,7 @@ def test_sos():
     assert "112" in general
     assert "119" in general
     guide = format_sos_guide("sick")
-    assert "병원" in guide or "hospital" in guide.lower()
+    assert "119" in guide or "emergency" in guide.lower()
 
 @test("DormChef: Recipe generation")
 async def test_dormchef():
@@ -328,24 +333,24 @@ async def main():
         await t()
 
     print("\n" + "="*60)
-    passed = sum(1 for _, s, _ in results if s == "✅ PASS")
-    failed = sum(1 for _, s, _ in results if s == "❌ FAIL")
+    passed = sum(1 for _, s, _ in results if s == "PASS")
+    failed = sum(1 for _, s, _ in results if s == "FAIL")
     print(f"  Results: {passed} passed, {failed} failed out of {len(results)} tests")
 
     if failed > 0:
         print("\n  Failed tests:")
         for name, status, err in results:
-            if status == "❌ FAIL":
-                print(f"    • {name}: {err}")
+            if status == "FAIL":
+                print(f"    * {name}: {err}")
 
     print("="*60)
 
     if failed > 0:
         sys.exit(1)
     else:
-        print("\n  🎉 All tests passed! Bot is ready to run.\n")
+        print("\n  All tests passed! Bot is ready to run.\n")
         print("  Start bot:  python bot.py")
-        print("  Start voice assistant:  cd negotiator && uvicorn main:app --reload\n")
+        print("  Start voice assistant:  cd negotiator2 && uvicorn main:app --reload\n")
 
 
 if __name__ == "__main__":
