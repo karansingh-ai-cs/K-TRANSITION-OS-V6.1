@@ -1757,6 +1757,7 @@ function handleWSMessage(event) {
     }
     return;
   }
+  if (action === 'barge_in') {
     killAudio();
     return;
   }
@@ -1787,7 +1788,7 @@ function handleWSMessage(event) {
     resetSession();
     return;
   }
-
+}
 
 // ── Mic: WALKIE-TALKIE (Hold-to-record) ─────────────────────
 
