@@ -509,17 +509,18 @@ async def _execute_intent(update, context, user_id, user_info, intent_result, or
         # Save the user's original message so we can auto-forward it when they click
         save_message(user_id, "user", original_text)
 
-        # Get a natural AI answer first
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-        history = get_history(user_id)
-        ai_response, _ = await ask_ai_async(
-            original_text,
-            conversation_history=history[-4:],
-            extra_context=build_context_for_ai(scan_message(original_text, user_info), user_info),
-        )
-
-        if not ai_response:
-            ai_response = "I can help with that!"
+        # Fast, predictable conversational response (bypasses heavy LLM to avoid reasoning hallucinations)
+        fast_replies = {
+            "cook": "🧑‍🍳 I can help you cook that! Tap below to open DormChef.",
+            "map": "🗺️ I can find directions for that! Tap below to open Maps.",
+            "buddy": "💬 I'm right here! Tap below to chat with me.",
+            "interpret": "🔮 I can translate and explain that! Tap below to use the Interpreter.",
+            "simulate": "🎮 Let's simulate that! Tap below to start.",
+            "practice": "🧠 Want to practice saying that in Korean? Tap below.",
+            "news": "📰 I can fetch the latest news on that! Tap below.",
+            "visa": "📡 Need visa info? Tap below to open Visa Radar.",
+        }
+        ai_response = fast_replies.get(intent, f"{emoji} I can help with that! Tap below to start.")
 
         # Build suggestion button
         suggestion_kb = InlineKeyboardMarkup([
@@ -1490,7 +1491,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.send_chat_action(chat_id=query.message.chat_id, action=ChatAction.TYPING)
                 result = await get_chef_recipe(last_user_msg, diet, allergies)
                 add_xp(user_id, XP_REWARDS["cook_recipe"], "cook_recipe")
-                await context.bot.send_message(chat_id=query.message.chat_id, text=result, reply_markup=kb)
+                set_state(user_id, State.COOK_WAITING_INGREDIENTS)
+                await context.bot.send_message(chat_id=query.message.chat_id, text=result, reply_markup=room_keyboard())
             else:
                 set_state(user_id, State.COOK_WAITING_INGREDIENTS)
                 await context.bot.send_message(chat_id=query.message.chat_id, text="🧑‍🍳 What's in your fridge? Tell me your ingredients!", reply_markup=kb)
@@ -1499,12 +1501,13 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             city = user_info.get("city", "")
             q = last_user_msg or "nearby"
             info, venue = format_place_info(q.lower().strip(), city)
+            set_state(user_id, State.MAP_WAITING_QUERY)
             if info:
-                await context.bot.send_message(chat_id=query.message.chat_id, text=info, reply_markup=kb)
+                await context.bot.send_message(chat_id=query.message.chat_id, text=info, reply_markup=room_keyboard())
             else:
                 korean_q = translate_to_korean(q)
                 korean_override = korean_q if korean_q.lower() != q.lower() else None
-                await context.bot.send_message(chat_id=query.message.chat_id, text=format_map_response(q, city, korean_override), reply_markup=kb)
+                await context.bot.send_message(chat_id=query.message.chat_id, text=format_map_response(q, city, korean_override), reply_markup=room_keyboard())
 
         elif module == "buddy":
             db_history = get_buddy_history(user_id, limit=6)
@@ -1520,7 +1523,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if last_user_msg:
                 await context.bot.send_chat_action(chat_id=query.message.chat_id, action=ChatAction.TYPING)
                 result = await interpret_text(last_user_msg, user_info)
-                await context.bot.send_message(chat_id=query.message.chat_id, text=f"🔮 Cultural Interpreter\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n{result}", reply_markup=kb)
+                set_state(user_id, State.INTERPRET_WAITING_TEXT)
+                await context.bot.send_message(chat_id=query.message.chat_id, text=f"🔮 Cultural Interpreter\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n{result}", reply_markup=room_keyboard())
             else:
                 set_state(user_id, State.INTERPRET_WAITING_TEXT)
                 await context.bot.send_message(chat_id=query.message.chat_id, text="🔮 Send me any text to interpret!", reply_markup=room_keyboard())
