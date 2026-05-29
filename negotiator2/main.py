@@ -1059,7 +1059,6 @@ async def negotiate_ws(websocket: WebSocket):
                         duration = analysis.get("duration_mins", 0)
                         outcome = analysis.get("summary", "")
                         
-                        import asyncio
                         asyncio.create_task(asyncio.to_thread(
                             save_session_data, session.user_id, session.goal, session.context_type, outcome, duration, score
                         ))
