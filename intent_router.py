@@ -31,11 +31,11 @@ INTENTS (pick ONE):
 - "practice" — Korean language roleplay practice. Entities: {{"scenario": "..."}}
 - "news" — Korea news or updates. Entities: {{"topic": "..."}}
 - "sos" — emergency help. Entities: {{"type": "..."}}
-- "visa" — visa, ARC, immigration. Entities: {{}}
+- "visa" — user is explicitly asking to check their visa deadline, ARC tracker, or immigration radar. Entities: {{}}
 - "challenge" — daily survival challenge. Entities: {{}}
 - "track" — budget/habit tracker. Entities: {{"tracker": "...", "value": "..."}}
 - "reminder" — user wants to set a reminder or alarm. Entities: {{"task": "...", "time": "..."}}
-- "apps" — app recommendations. Entities: {{"category": "..."}}
+- "apps" — user is explicitly asking for the list of recommended apps to download. Entities: {{"category": "..."}}
 - "hack" — Korea life hacks. Entities: {{"topic": "..."}}
 - "schedule" — first week plan, general checklist. Entities: {{}}
 - "quiz" — Korean quiz. Entities: {{}}
@@ -47,7 +47,8 @@ INTENTS (pick ONE):
 - "rate" — exchange rates. Entities: {{"amount": "..."}}
 - "culture" — cultural tips. Entities: {{"topic": "..."}}
 - "scam" — scam check. Entities: {{"situation": "..."}}
-- "general_question" — general Korea question. Entities: {{}}
+- "save_memory" — user is explicitly stating a personal fact about themselves to save (e.g., "I'm on a D-2 visa", "My major is computer science", "I live in Busan", "I am 24 years old"). Entities: {{"key": "visa|major|city|age|etc", "value": "..."}}
+- "general_question" — user is asking a specific question (e.g., "how to change D4 to D2", "what are visa rules", "which app is good for coffee"). Routes to the AI expert. Entities: {{}}
 - "greeting" — hello, hi. Entities: {{}}
 
 CRITICAL MAP RULES:
@@ -70,8 +71,6 @@ _QUICK = {
     "hi": ("greeting", 0.95), "hello": ("greeting", 0.95), "hey": ("greeting", 0.95),
     "안녕": ("greeting", 0.95), "안녕하세요": ("greeting", 0.95),
     "sos": ("sos", 0.95), "emergency": ("emergency", 0.95),
-    "news": ("news", 0.90), "quiz": ("quiz", 0.90), "level": ("level", 0.90),
-    "profile": ("profile", 0.90), "visa": ("visa", 0.90),
 }
 
 
@@ -130,32 +129,11 @@ async def route_intent(text: str, user_info: dict = None, current_state: str = "
 
 
 def _fallback(text: str) -> dict:
-    """Keyword-based fallback when LLM router fails."""
+    """Fallback when LLM router fails. Only emergencies are hardcoded."""
     t = text.lower()
 
-    if any(w in t for w in ["cook", "recipe", "ingredient", "egg", "ramen", "hungry", "fridge", "what can i make"]):
-        return {"intent": "cook", "entities": {"ingredients": text}, "korean_query": None, "confidence": 0.6}
-    if any(w in t for w in ["map", "direction", "nearby", "find", "where is", "how to get", "closest", "nearest"]):
-        return {"intent": "map", "entities": {"query": text, "type": "search"}, "korean_query": None, "confidence": 0.6}
-    if any(w in t for w in ["lonely", "sad", "miss home", "homesick", "depressed", "alone", "stressed", "miss my"]):
-        return {"intent": "buddy", "entities": {"mood": "sad"}, "korean_query": None, "confidence": 0.7}
-    if any(w in t for w in ["news", "headline", "what's happening", "update"]):
-        return {"intent": "news", "entities": {}, "korean_query": None, "confidence": 0.7}
-    if any(w in t for w in ["translate", "mean", "korean for", "say in korean", "how do you say", "what does"]):
-        return {"intent": "interpret", "entities": {"text": text}, "korean_query": None, "confidence": 0.7}
-    if any(w in t for w in ["visa", "arc ", "immigration", "d-2", "d-4", "hikorea"]):
-        return {"intent": "visa", "entities": {}, "korean_query": None, "confidence": 0.7}
+    # Critical emergencies only — everything else goes to the AI expert
     if any(w in t for w in ["emergency", "police", "ambulance", "help me", "danger"]):
         return {"intent": "emergency", "entities": {}, "korean_query": None, "confidence": 0.8}
-    if any(w in t for w in ["scam", "fraud", "suspicious", "cheat"]):
-        return {"intent": "scam", "entities": {"situation": text}, "korean_query": None, "confidence": 0.7}
-    if any(w in t for w in ["exchange", "rate", "won to", "usd", "krw"]):
-        return {"intent": "rate", "entities": {}, "korean_query": None, "confidence": 0.7}
-    if any(w in t for w in ["schedule", "first week", "checklist", "to do"]):
-        return {"intent": "schedule", "entities": {}, "korean_query": None, "confidence": 0.7}
-    if any(w in t for w in ["word of", "learn korean", "korean word"]):
-        return {"intent": "word", "entities": {}, "korean_query": None, "confidence": 0.7}
-    if any(w in t for w in ["challenge", "daily challenge"]):
-        return {"intent": "challenge", "entities": {}, "korean_query": None, "confidence": 0.7}
 
     return {"intent": "general_question", "entities": {}, "korean_query": None, "confidence": 0.3}

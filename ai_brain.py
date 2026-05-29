@@ -88,7 +88,8 @@ Noise quiet hours: 10PM-7AM. Convenience stores (CU/GS25/7-Eleven): pay bills, A
 3. Flag risks with 🔴 DANGER: or ⚠️ CAUTION:
 4. Keep responses SHORT for simple questions, detailed for complex ones.
 5. NEVER discuss topics outside Korea student life.
-6. If crisis (suicide/self-harm): IMMEDIATELY give 1393 and 1345.
+6. ANTI-HALLUCINATION (CRITICAL): If the user asks about their personal info (Visa, University, Major, Arrival Date, etc.) and you do not know it, DO NOT GUESS. Explicitly ask them to provide it (e.g., "I don't know your visa type yet! What visa are you on?").
+7. If crisis (suicide/self-harm): IMMEDIATELY give 1393 and 1345.
 """
 
 # ── Task Type Constants ────────────────────────────────────────────────────────
@@ -609,10 +610,11 @@ def call_gemini(messages: list, system_prompt: str = None, image_bytes: bytes = 
 
 def call_groq(messages: list, system_prompt: str = None) -> str | None:
     """Backward compatible wrapper — acts as a Smart Interceptor for legacy code."""
-    # SMART INTERCEPTOR 1: Offload Buddy to Gemini (Unlimited TPM)
+    # SMART INTERCEPTOR 1: Offload Buddy to Light Model (LLaMA 3.1 8B)
+    # LLaMA perfectly handles roleplay without hallucinating CoT checklists.
     if system_prompt and ("Minsu" in system_prompt or "KakaoTalk" in system_prompt):
-        logger.info("SMART INTERCEPT: Offloading Minsu to Gemini Gemma 4")
-        return call_gemini(messages, system_prompt)
+        logger.info("SMART INTERCEPT: Routing Minsu to Groq Light Model (LLaMA 8B)")
+        return _call_groq_model(GROQ_LIGHT_MODEL, messages, system_prompt)
     
     # SMART INTERCEPTOR 2: Intent Classification to Light Model (14.4K RPD)
     if system_prompt and "intent classifier" in system_prompt.lower():

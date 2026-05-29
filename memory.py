@@ -148,6 +148,13 @@ def setup(db_path=None):
         except Exception:
             pass  # Column already exists
 
+        # Self-Updating Memory: Add new profile columns for conversational learning
+        for col, default in [("visa_type", "''"), ("major", "''"), ("age", "''"), ("country", "''")]:
+            try:
+                conn.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT DEFAULT {default}")
+            except Exception:
+                pass  # Column already exists
+
         conn.commit()
     logger.info("Database ready at %s", DB_FILE)
 

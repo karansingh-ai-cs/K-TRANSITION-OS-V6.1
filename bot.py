@@ -180,6 +180,13 @@ def nav_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
+def room_keyboard() -> InlineKeyboardMarkup:
+    """Escape hatch button shown inside active Rooms (Buddy, Chef, Practice, etc.)."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Back to Main Bot", callback_data="soft_exit_room")]
+    ])
+
+
 def main_keyboard() -> ReplyKeyboardMarkup:
     """Persistent reply keyboard — always visible at bottom. Full feature coverage."""
     return ReplyKeyboardMarkup(
@@ -258,10 +265,10 @@ async def _handle_button_text(update, context, user_id, user_info, text):
 
     if action == "cook_start":
         set_state(user_id, State.COOK_WAITING_INGREDIENTS)
-        await safe_send(update, "🧑‍🍳 What's in your fridge? Tell me your ingredients!\n\nOr describe a craving — I'll make it work with convenience store stuff 🔥", reply_markup=kb)
+        await safe_send(update, "🧑‍🍳 What's in your fridge? Tell me your ingredients!\n\nOr describe a craving — I'll make it work with convenience store stuff 🔥", reply_markup=room_keyboard())
     elif action == "map_start":
         set_state(user_id, State.MAP_WAITING_QUERY)
-        await safe_send(update, "🗺️ Where do you want to go?\n\n• Place name: \"pharmacy\", \"halal restaurant\"\n• Directions: \"from Hongdae to Gangnam\"\n• Nearby: \"nearest ATM\"\n\nAll links work with Naver + Kakao + Google Maps!", reply_markup=kb)
+        await safe_send(update, "🗺️ Where do you want to go?\n\n• Place name: \"pharmacy\", \"halal restaurant\"\n• Directions: \"from Hongdae to Gangnam\"\n• Nearby: \"nearest ATM\"\n\nAll links work with Naver + Kakao + Google Maps!", reply_markup=room_keyboard())
     elif action == "buddy_start":
         db_history = get_buddy_history(user_id, limit=20)
         set_state(user_id, State.BUDDY_ACTIVE, {"history": db_history})
@@ -273,7 +280,7 @@ async def _handle_button_text(update, context, user_id, user_info, text):
         db_history.append({"role": "user", "content": "hey! what's up?"})
         db_history.append({"role": "assistant", "content": response})
         update_context(user_id, history=db_history[-16:])
-        await safe_send(update, f"🧑 민수:\n{response}", reply_markup=kb)
+        await safe_send(update, f"🧑 민수:\n{response}", reply_markup=room_keyboard())
     elif action == "news_fetch":
         await update.message.reply_text("📰 Fetching latest Korea news...")
         news = get_news(max_items=5)
@@ -281,10 +288,10 @@ async def _handle_button_text(update, context, user_id, user_info, text):
     elif action == "sim_start":
         scenario = get_random_scenario()
         set_state(user_id, State.SIM_WAITING_CHOICE, {"scenario": scenario})
-        await safe_send(update, format_scenario(scenario), reply_markup=kb)
+        await safe_send(update, format_scenario(scenario), reply_markup=room_keyboard())
     elif action == "interpret_start":
         set_state(user_id, State.INTERPRET_WAITING_TEXT)
-        await safe_send(update, "🔮 Send me any text!\n\n• Korean → translate + cultural breakdown\n• English → Korean version with formality levels\n• Situation: \"how do I tell my professor I'll be late\"", reply_markup=kb)
+        await safe_send(update, "🔮 Send me any text!\n\n• Korean → translate + cultural breakdown\n• English → Korean version with formality levels\n• Situation: \"how do I tell my professor I'll be late\"", reply_markup=room_keyboard())
     elif action == "korean_menu":
         msg = ("🇰🇷 Korean Learning\n━━━━━━━━━━━━━━━━━━\n\n"
                "📚 /word — Word of the day\n🎯 /quiz — AI quiz (adapts to level)\n"
@@ -359,11 +366,11 @@ async def _handle_active_state(update, context, user_id, user_info, text, state)
                     add_xp(user_id, XP_REWARDS["simulate_perfect"], "simulate_perfect")
                 elif score > 0:
                     add_xp(user_id, XP_REWARDS["simulate_ok"], "simulate_ok")
-                await safe_send(update, msg, reply_markup=kb)
+                await safe_send(update, msg, reply_markup=room_keyboard())
             else:
-                await safe_send(update, "Couldn't evaluate. Try /simulate again!", reply_markup=kb)
+                await safe_send(update, "Couldn't evaluate. Try /simulate again!", reply_markup=room_keyboard())
         else:
-            await safe_send(update, "Pick A, B, or C! 👆", reply_markup=kb)
+            await safe_send(update, "Pick A, B, or C! 👆", reply_markup=room_keyboard())
 
     elif state == State.PRACTICE_ACTIVE:
         ctx = get_context(user_id)
@@ -377,7 +384,7 @@ async def _handle_active_state(update, context, user_id, user_info, text, state)
         ctx["history"].append({"role": "assistant", "content": response})
         if len(ctx["history"]) > 16:
             ctx["history"] = ctx["history"][-12:]
-        await safe_send(update, response, reply_markup=kb)
+        await safe_send(update, response, reply_markup=room_keyboard())
 
     elif state == State.BUDDY_ACTIVE:
         ctx = get_context(user_id)
@@ -391,7 +398,7 @@ async def _handle_active_state(update, context, user_id, user_info, text, state)
         history.append({"role": "assistant", "content": response})
         if len(history) > 20:
             ctx["history"] = history[-16:]
-        await safe_send(update, f"🧑 민수:\n{response}", reply_markup=kb)
+        await safe_send(update, f"🧑 민수:\n{response}", reply_markup=room_keyboard())
 
     elif state == State.INTERPRET_WAITING_TEXT:
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
@@ -409,251 +416,125 @@ async def _handle_active_state(update, context, user_id, user_info, text, state)
         await process_message(update, context, text)
 
 
-# ── Intent Executor ───────────────────────────────────────────────────────────
+# ── Intent Executor (Soft-Routing Architecture) ──────────────────────────────
+
+# Maps intent → (emoji, label, callback_data) for suggestion buttons
+_SOFT_BUTTONS = {
+    "cook":       ("🧑‍🍳", "Open AI DormChef",      "soft_cook"),
+    "map":        ("🗺️",  "Get Map Directions",    "soft_map"),
+    "buddy":      ("💬",  "Chat with Minsu",       "soft_buddy"),
+    "interpret":  ("🔮",  "Open Cultural Interpreter", "soft_interpret"),
+    "simulate":   ("🎮",  "Try Culture Simulator",  "soft_simulate"),
+    "practice":   ("🧠",  "Start Korean Practice",  "soft_practice"),
+    "news":       ("📰",  "Open News Feed",         "soft_news"),
+    "visa":       ("📡",  "Open Visa Radar",        "soft_visa"),
+    "challenge":  ("🎯",  "Open Daily Challenge",   "soft_challenge"),
+    "quiz":       ("📝",  "Start Korean Quiz",      "soft_quiz"),
+    "word":       ("📚",  "Get Word of the Day",    "soft_word"),
+    "phrase":     ("💬",  "Survival Phrases",       "soft_phrase"),
+    "apps":       ("📱",  "Show Recommended Apps",  "soft_apps"),
+    "hack":       ("💡",  "Korea Life Hacks",       "soft_hack"),
+    "schedule":   ("📅",  "Open Schedule",          "soft_schedule"),
+    "rate":       ("💱",  "Check Exchange Rates",   "soft_rate"),
+    "culture":    ("🎎",  "Cultural Tips",          "soft_culture"),
+    "scam":       ("🔍",  "Run Scam Check",         "soft_scam"),
+    "track":      ("📊",  "Open Tracker",           "soft_track"),
+    "reminder":   ("⏰",  "Set Reminder",           "soft_reminder"),
+}
+
 
 async def _execute_intent(update, context, user_id, user_info, intent_result, original_text):
-    """Execute a classified intent from the LLM router."""
+    """Soft-Routing: Answer naturally, then suggest a module via inline button.
+    The user's message is stored so clicking the button auto-forwards it."""
     intent = intent_result["intent"]
     entities = intent_result.get("entities", {})
     korean_q = intent_result.get("korean_query")
     kb = main_keyboard()
 
-    if intent == "cook":
-        ingredients = entities.get("ingredients", "")
-        if ingredients:
-            diet = user_info.get("diet", "none")
-            allergies = ", ".join(user_info.get("allergies", [])) or "none"
-            await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-            result = await get_chef_recipe(ingredients, diet, allergies)
-            add_xp(user_id, XP_REWARDS["cook_recipe"], "cook_recipe")
-            await safe_send(update, result, reply_markup=kb)
-        else:
-            set_state(user_id, State.COOK_WAITING_INGREDIENTS)
-            await safe_send(update, "🧑‍🍳 What ingredients do you have? Tell me everything!", reply_markup=kb)
-
-    elif intent == "map":
-        city = user_info.get("city", "")
-        query = entities.get("query", original_text)
-        map_type = entities.get("type", "search")
-        if map_type == "directions":
-            origin = entities.get("origin", "")
-            dest = entities.get("destination", "")
-            if origin and dest:
-                from maps_helper import _three_links_directions
-                origin_kr = translate_to_korean(origin)
-                dest_kr = korean_q or translate_to_korean(dest)
-                links = _three_links_directions(origin, dest, origin_kr, dest_kr)
-                msg = f"📍 Directions: {origin} → {dest}\n\n{links}\n💡 Kakao Maps shows real-time bus/subway arrival"
-                await safe_send(update, msg, reply_markup=kb)
-                return
-        info, venue = format_place_info(query.lower().strip(), city)
-        if info:
-            if venue:
-                await update.message.reply_venue(
-                    latitude=venue["lat"], longitude=venue["lng"],
-                    title=venue["title"], address=venue["address"], reply_markup=kb
-                )
-            await safe_send(update, info, reply_markup=kb)
-            return
-        await safe_send(update, format_map_response(query, city, korean_q), reply_markup=kb)
-
-    elif intent in ("buddy", "emotional_support"):
-        db_history = get_buddy_history(user_id, limit=20)
-        set_state(user_id, State.BUDDY_ACTIVE, {"history": db_history})
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-        await asyncio.sleep(random.uniform(0.5, 1.5))
-        response = await chat_with_buddy(original_text, user_info, db_history)
-        save_buddy_message(user_id, "user", original_text)
-        save_buddy_message(user_id, "assistant", response)
-        db_history.append({"role": "user", "content": original_text})
-        db_history.append({"role": "assistant", "content": response})
-        update_context(user_id, history=db_history[-16:])
-        await safe_send(update, f"🧑 민수:\n{response}", reply_markup=kb)
-
-    elif intent == "interpret":
-        text_to_interpret = entities.get("text", original_text)
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-        result = await interpret_text(text_to_interpret, user_info)
-        await safe_send(update, f"🔮 Cultural Interpreter\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n{result}", reply_markup=kb)
-
-    elif intent == "simulate":
-        topic = entities.get("topic", "")
-        if topic:
-            await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-            result = await generate_ai_scenario(topic, user_info)
-            await safe_send(update, result, reply_markup=kb)
-        else:
-            scenario = get_random_scenario()
-            set_state(user_id, State.SIM_WAITING_CHOICE, {"scenario": scenario})
-            await safe_send(update, format_scenario(scenario), reply_markup=kb)
-
-    elif intent == "practice":
-        scenario_key = entities.get("scenario", "")
-        if scenario_key and scenario_key in KB_SCENARIOS:
-            progress = get_progress(user_id)
-            level = progress.get("quiz_level", 1)
-            await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-            response = await start_practice(scenario_key, level)
-            set_state(user_id, State.PRACTICE_ACTIVE, {
-                "scenario": scenario_key,
-                "history": [{"role": "assistant", "content": response}],
-                "level": level,
-            })
-            add_xp(user_id, XP_REWARDS["practice_session"], "practice_session")
-            await safe_send(update, f"🧠 Korean Brain — Practice Mode\n\n{response}\n\n━━━━━━━━━━━━━━\nReply in Korean or English!\nType 'stop' to end.", reply_markup=kb)
-        else:
-            await safe_send(update, get_scenario_list(), reply_markup=kb)
-
-    elif intent == "news":
-        topic = entities.get("topic", "")
-        if topic:
-            news = filter_news_by_topic(topic)
-        else:
-            news = get_news(max_items=5)
-        await safe_send(update, format_news(news), reply_markup=kb)
-
-    elif intent == "visa":
-        arrival = user_info.get("arrival_date", "")
-        data = get_visa_status(arrival) if arrival else None
-        await safe_send(update, format_visa_status(data), reply_markup=kb)
-
-    elif intent in ("sos", "emergency"):
+    # ── Direct execution intents (no soft-routing needed) ─────────────────
+    if intent in ("sos", "emergency"):
         await safe_send(update, format_sos_general(), reply_markup=kb)
+        return
 
-    elif intent == "challenge":
-        challenge = get_todays_challenge(user_id)
-        progress = get_progress(user_id)
-        streak = progress.get("streak", 0)
-        await safe_send(update, format_challenge(challenge, streak), reply_markup=kb)
-
-    elif intent == "quiz":
-        # Trigger the quiz command handler
-        await cmd_quiz(update, context)
-
-    elif intent == "word":
-        word = get_word_of_the_day()
-        add_korean_word_learned(user_id)
-        await safe_send(update, format_word_of_day(word), reply_markup=kb)
-
-    elif intent == "phrase":
-        cat = entities.get("category", "")
-        if cat:
-            phrases = get_survival_phrases(cat) or get_survival_phrases()
-            await safe_send(update, format_phrases_list(phrases, f"Phrases — {cat.title()}"), reply_markup=kb)
-        else:
-            topics = get_topic_list()
-            msg = "📚 Phrase Topics:\n\n" + "\n".join(f"• /phrase {t}" for t in topics)
-            await safe_send(update, msg, reply_markup=kb)
-
-    elif intent == "level":
-        await safe_send(update, format_level_status(user_id), reply_markup=kb)
-
-    elif intent == "profile":
-        await safe_send(update, _build_status_card(user_id, user_info), reply_markup=kb)
-
-    elif intent == "rate":
-        amount = 10000
-        amt_str = entities.get("amount", "")
-        if amt_str:
-            try:
-                amount = int(str(amt_str).replace(",", "").replace("₩", ""))
-            except ValueError:
-                pass
-        await safe_send(update, format_exchange_rates(amount), reply_markup=kb)
-
-    elif intent == "culture":
-        tip = get_cultural_tip()
-        await safe_send(update, format_cultural_tip(tip), reply_markup=kb)
-
-    elif intent == "scam":
-        situation = entities.get("situation", original_text)
-        await safe_send(update, format_scam_scan(situation), reply_markup=kb)
-
-    elif intent == "apps":
-        cat = entities.get("category")
-        await safe_send(update, get_apps_list(cat), reply_markup=kb)
-
-    elif intent == "hack":
-        topic = entities.get("topic", "")
-        if topic:
-            builtin = get_hacks(topic)
-            if "Life Hacks" not in builtin:
-                await safe_send(update, builtin, reply_markup=kb)
-                return
-            await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-            result = await get_ai_hack(topic, user_info)
-            await safe_send(update, result, reply_markup=kb)
-        else:
-            await safe_send(update, get_hacks(), reply_markup=kb)
-
-    elif intent == "schedule":
-        await safe_send(update, get_first_week_checklist(user_info), reply_markup=kb)
-
-    elif intent == "reminder":
-        task = entities.get("task", "something")
-        time_str = entities.get("time", "later")
-        
-        # In a full implementation, we'd parse time_str with a library like dateparser
-        # For now, we'll schedule a generic 1-hour/15-min escalating reminder
-        # We assume the user wants an alert soon
-        from datetime import datetime, timedelta, UTC
-        from notifier import add_custom_reminder
-        
-        now = datetime.now(UTC)
-        run_date = now + timedelta(minutes=60) # Default to 1 hour from now
-        
-        # Crude time parsing for demonstration
-        t_lower = time_str.lower()
-        if "min" in t_lower:
-            try:
-                mins = int(''.join(filter(str.isdigit, t_lower)))
-                run_date = now + timedelta(minutes=mins)
-            except: pass
-        elif "hour" in t_lower:
-            try:
-                hrs = int(''.join(filter(str.isdigit, t_lower)))
-                run_date = now + timedelta(hours=hrs)
-            except: pass
-            
-        add_custom_reminder(user_id, task, run_date)
-        
-        await safe_send(update, f"⏰ Got it! I'll remind you to '{task}' at {run_date.strftime('%H:%M')} UTC. I'll escalate alerts if you miss it!", reply_markup=kb)
-
-    elif intent == "greeting":
+    if intent == "greeting":
         name = user_info.get("first_name", "friend")
         msg = (f"안녕 {name}! 👋\n\nJust type what you need — I understand natural language!\n\n"
                f"Examples:\n• \"I have eggs and cheese, what can I cook?\"\n"
                f"• \"find nearest pharmacy\"\n• \"I feel lonely\"\n"
                f"• \"what does 대박 mean?\"\n\nOr tap any button below 👇")
         await safe_send(update, msg, reply_markup=kb)
+        return
 
-    elif intent == "track":
-        tracker_name = entities.get("tracker", "")
-        value = entities.get("value", "")
-        if tracker_name and value:
-            try:
-                val = float(str(value).replace(",", "").replace("₩", "").replace("won", ""))
-                tracker = get_tracker_by_name(user_id, tracker_name)
-                if not tracker:
-                    emoji = guess_emoji(tracker_name)
-                    unit = guess_unit(tracker_name)
-                    tid = create_tracker(user_id, tracker_name, emoji, unit)
-                    tracker = {"id": tid, "name": tracker_name, "emoji": emoji, "unit": unit}
-                log_entry(user_id, tracker["id"], val)
-                add_xp(user_id, XP_REWARDS["tracker_log"], "tracker_log")
-                await update.message.reply_text(
-                    f"{tracker.get('emoji', '📊')} Logged: {val:,.0f} {tracker.get('unit', '')} to {tracker['name']}",
-                    reply_markup=kb)
-            except (ValueError, TypeError):
-                trackers = get_user_trackers(user_id)
-                await safe_send(update, format_tracker_list(trackers), reply_markup=kb)
+    if intent == "level":
+        await safe_send(update, format_level_status(user_id), reply_markup=kb)
+        return
+
+    if intent == "profile":
+        await safe_send(update, _build_status_card(user_id, user_info), reply_markup=kb)
+        return
+
+    # ── Self-Updating Memory ──────────────────────────────────────────────
+    if intent == "save_memory":
+        key = entities.get("key", "").lower().strip()
+        value = entities.get("value", "").strip()
+        if key and value:
+            # Map to known DB columns
+            MEMORY_MAP = {
+                "visa": "visa_type", "university": "university", "uni": "university",
+                "city": "city", "diet": "diet", "major": "major",
+                "age": "age", "country": "country", "arrival": "arrival_date",
+            }
+            db_key = MEMORY_MAP.get(key, key)
+            # Only save to known user columns
+            SAFE_COLUMNS = {"university", "city", "diet", "arrival_date", "visa_type", "major", "age", "country"}
+            if db_key in SAFE_COLUMNS:
+                try:
+                    update_user(user_id, **{db_key: value})
+                    await safe_send(update, f"✅ Got it! I'll remember your {key}: **{value}**\nThis is saved permanently to your profile.", reply_markup=kb)
+                except Exception as e:
+                    logger.warning("Memory save failed for %s: %s", key, e)
+                    await safe_send(update, f"I noted your {key} is {value}, but couldn't save it right now. Tell me again later!", reply_markup=kb)
+            else:
+                # For unknown keys, just acknowledge conversationally
+                await safe_send(update, f"Got it, I'll keep that in mind! Your {key} is {value}.", reply_markup=kb)
         else:
-            trackers = get_user_trackers(user_id)
-            await safe_send(update, format_tracker_list(trackers), reply_markup=kb)
+            # Fallback to general question
+            await process_message(update, context, original_text)
+        return
 
-    else:
-        # general_question — fall through to full AI pipeline
-        await process_message(update, context, original_text)
+    # ── Soft-Routing: AI answers + suggestion button ──────────────────────
+    if intent in _SOFT_BUTTONS:
+        emoji, label, callback_data = _SOFT_BUTTONS[intent]
+
+        # Save the user's original message so we can auto-forward it when they click
+        save_message(user_id, "user", original_text)
+
+        # Get a natural AI answer first
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+        history = get_history(user_id)
+        ai_response, _ = await ask_ai_async(
+            original_text,
+            conversation_history=history[-4:],
+            extra_context=build_context_for_ai(scan_message(original_text, user_info), user_info),
+        )
+
+        if not ai_response:
+            ai_response = "I can help with that!"
+
+        # Build suggestion button
+        suggestion_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"{emoji} {label}", callback_data=callback_data)]
+        ])
+
+        await safe_send(update, ai_response, reply_markup=suggestion_kb)
+        save_message(user_id, "assistant", ai_response[:500])
+        return
+
+    # ── Default: general_question — full AI pipeline ──────────────────────
+    await process_message(update, context, original_text)
+
+
+
 
 
 # ── Onboarding ────────────────────────────────────────────────────────────────
@@ -754,22 +635,7 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
     text_lower = text.lower().strip()
 
-    # ── Quick keyword routing (before AI to save quota) ─────────────────────
-    if any(w in text_lower for w in ["word of the day", "korean word", "learn korean", "word today"]):
-        word = get_word_of_the_day()
-        add_korean_word_learned(user_id)
-        await safe_send(update, format_word_of_day(word), reply_markup=nav_keyboard())
-        return
-
-    if any(w in text_lower for w in ["news", "what's happening", "latest news", "korea news"]) and FEATURE_NEWS:
-        await update.message.reply_text("📰 Fetching latest Korea news...")
-        news = get_news(max_items=5)
-        await safe_send(update, format_news(news), reply_markup=nav_keyboard())
-        return
-
-    if any(w in text_lower for w in ["first week", "checklist", "what should i do", "schedule", "to do list"]) and FEATURE_SCHEDULE:
-        await safe_send(update, get_first_week_checklist(user_info), reply_markup=nav_keyboard())
-        return
+    # Quick keyword routing removed — Soft-Routing handles all module suggestions via buttons
 
     # ── Risk scan ───────────────────────────────────────────────────────────
     scan_result = scan_message(text, user_info)
@@ -1572,7 +1438,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ── Navigation Callback Handler ───────────────────────────────────────────────
 
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """V6: Callback handler — quiz answers + conversational nav triggers."""
+    """V7: Callback handler — quiz, nav, and Soft-Routing auto-forward."""
     query = update.callback_query
     await query.answer()
     data = query.data
@@ -1584,8 +1450,158 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = query.from_user.id
     user_info = get_or_create_user(user_id)
+    kb = main_keyboard()
 
-    # Conversational navigation — set states instead of static menus
+    # ── Soft-Routing: Auto-forward last message into a module ─────────────
+    if data == "soft_exit_room":
+        clear_state(user_id)
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="🏠 Back to main bot! Just type what you need.",
+            reply_markup=kb
+        )
+        return
+
+    if data.startswith("soft_"):
+        # Get the user's last message from DB to auto-forward
+        history = get_history(user_id)
+        last_user_msg = ""
+        for m in reversed(history):
+            if m.get("role") == "user":
+                last_user_msg = m.get("content", "")
+                break
+
+        # Remove suggestion button from the original message
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+        module = data.replace("soft_", "")
+
+        if module == "cook":
+            if last_user_msg:
+                diet = user_info.get("diet", "none")
+                allergies = ", ".join(user_info.get("allergies", [])) or "none"
+                await context.bot.send_chat_action(chat_id=query.message.chat_id, action=ChatAction.TYPING)
+                result = await get_chef_recipe(last_user_msg, diet, allergies)
+                add_xp(user_id, XP_REWARDS["cook_recipe"], "cook_recipe")
+                await context.bot.send_message(chat_id=query.message.chat_id, text=result, reply_markup=kb)
+            else:
+                set_state(user_id, State.COOK_WAITING_INGREDIENTS)
+                await context.bot.send_message(chat_id=query.message.chat_id, text="🧑‍🍳 What's in your fridge? Tell me your ingredients!", reply_markup=kb)
+
+        elif module == "map":
+            city = user_info.get("city", "")
+            q = last_user_msg or "nearby"
+            info, venue = format_place_info(q.lower().strip(), city)
+            if info:
+                await context.bot.send_message(chat_id=query.message.chat_id, text=info, reply_markup=kb)
+            else:
+                korean_q = translate_to_korean(q)
+                korean_override = korean_q if korean_q.lower() != q.lower() else None
+                await context.bot.send_message(chat_id=query.message.chat_id, text=format_map_response(q, city, korean_override), reply_markup=kb)
+
+        elif module == "buddy":
+            db_history = get_buddy_history(user_id, limit=6)
+            set_state(user_id, State.BUDDY_ACTIVE, {"history": db_history})
+            await context.bot.send_chat_action(chat_id=query.message.chat_id, action=ChatAction.TYPING)
+            msg = last_user_msg or "hey! what's up?"
+            response = await chat_with_buddy(msg, user_info, db_history)
+            save_buddy_message(user_id, "user", msg)
+            save_buddy_message(user_id, "assistant", response)
+            await context.bot.send_message(chat_id=query.message.chat_id, text=f"🧑 민수:\n{response}", reply_markup=room_keyboard())
+
+        elif module == "interpret":
+            if last_user_msg:
+                await context.bot.send_chat_action(chat_id=query.message.chat_id, action=ChatAction.TYPING)
+                result = await interpret_text(last_user_msg, user_info)
+                await context.bot.send_message(chat_id=query.message.chat_id, text=f"🔮 Cultural Interpreter\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n{result}", reply_markup=kb)
+            else:
+                set_state(user_id, State.INTERPRET_WAITING_TEXT)
+                await context.bot.send_message(chat_id=query.message.chat_id, text="🔮 Send me any text to interpret!", reply_markup=room_keyboard())
+
+        elif module == "simulate":
+            scenario = get_random_scenario()
+            set_state(user_id, State.SIM_WAITING_CHOICE, {"scenario": scenario})
+            await context.bot.send_message(chat_id=query.message.chat_id, text=format_scenario(scenario), reply_markup=room_keyboard())
+
+        elif module == "practice":
+            await context.bot.send_message(chat_id=query.message.chat_id, text=get_scenario_list(), reply_markup=kb)
+
+        elif module == "news":
+            news = get_news(max_items=5)
+            await context.bot.send_message(chat_id=query.message.chat_id, text=format_news(news), reply_markup=kb)
+
+        elif module == "visa":
+            arrival = user_info.get("arrival_date", "")
+            data_v = get_visa_status(arrival) if arrival else None
+            await context.bot.send_message(chat_id=query.message.chat_id, text=format_visa_status(data_v), reply_markup=kb)
+
+        elif module == "challenge":
+            challenge = get_todays_challenge(user_id)
+            progress = get_progress(user_id)
+            streak = progress.get("streak", 0)
+            await context.bot.send_message(chat_id=query.message.chat_id, text=format_challenge(challenge, streak), reply_markup=kb)
+
+        elif module == "quiz":
+            # Can't call cmd_quiz without an update.message, so send instructions
+            await context.bot.send_message(chat_id=query.message.chat_id, text="📝 Type /quiz to start a Korean quiz!", reply_markup=kb)
+
+        elif module == "word":
+            word = get_word_of_the_day()
+            add_korean_word_learned(user_id)
+            await context.bot.send_message(chat_id=query.message.chat_id, text=format_word_of_day(word), reply_markup=kb)
+
+        elif module == "phrase":
+            topics = get_topic_list()
+            msg = "📚 Phrase Topics:\n\n" + "\n".join(f"• /phrase {t}" for t in topics)
+            await context.bot.send_message(chat_id=query.message.chat_id, text=msg, reply_markup=kb)
+
+        elif module == "apps":
+            await context.bot.send_message(chat_id=query.message.chat_id, text=get_apps_list(), reply_markup=kb)
+
+        elif module == "hack":
+            await context.bot.send_message(chat_id=query.message.chat_id, text=get_hacks(), reply_markup=kb)
+
+        elif module == "schedule":
+            await context.bot.send_message(chat_id=query.message.chat_id, text=get_first_week_checklist(user_info), reply_markup=kb)
+
+        elif module == "rate":
+            await context.bot.send_message(chat_id=query.message.chat_id, text=format_exchange_rates(10000), reply_markup=kb)
+
+        elif module == "culture":
+            tip = get_cultural_tip()
+            await context.bot.send_message(chat_id=query.message.chat_id, text=format_cultural_tip(tip), reply_markup=kb)
+
+        elif module == "scam":
+            if last_user_msg:
+                await context.bot.send_message(chat_id=query.message.chat_id, text=format_scam_scan(last_user_msg), reply_markup=kb)
+            else:
+                await context.bot.send_message(chat_id=query.message.chat_id, text="Describe the situation: /scam [description]", reply_markup=kb)
+
+        elif module == "track":
+            trackers = get_user_trackers(user_id)
+            await context.bot.send_message(chat_id=query.message.chat_id, text=format_tracker_list(trackers), reply_markup=kb)
+
+        elif module == "reminder":
+            from datetime import timedelta
+            from notifier import add_custom_reminder
+            now = datetime.now(UTC)
+            task = last_user_msg or "reminder"
+            run_date = now + timedelta(minutes=60)
+            add_custom_reminder(user_id, task, run_date)
+            await context.bot.send_message(chat_id=query.message.chat_id, text=f"⏰ Reminder set! I'll ping you about '{task}' in ~1 hour.", reply_markup=kb)
+
+        else:
+            await context.bot.send_message(chat_id=query.message.chat_id, text="Feature coming soon!", reply_markup=kb)
+        return
+
+    # ── Navigation callbacks (unchanged) ──────────────────────────────────
     if data == "nav_home":
         clear_state(user_id)
         text = ("🏠 Home\n\nJust type what you need — I understand natural language!\n\n"
