@@ -1849,16 +1849,17 @@ async function startRecordingNew(whisper = false) {
 
   try {
     if (audioCtx?.state === 'suspended') await audioCtx.resume();
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-
+    
+    // FIX BUG #8: Keep stream alive globally so mobile doesn't ask permission every time
+    if (!mediaStream || !mediaStream.active) {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    }
     const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
       ? 'audio/webm;codecs=opus'
       : MediaRecorder.isTypeSupported('audio/webm')
         ? 'audio/webm'
         : 'audio/ogg';
-
     mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
-
     mediaRecorder.ondataavailable = e => {
       if (e.data.size > 0 && ws?.readyState === WebSocket.OPEN) {
         e.data.arrayBuffer().then(buf => {
@@ -1866,10 +1867,9 @@ async function startRecordingNew(whisper = false) {
           ws.send(JSON.stringify({ action: 'audio_end', is_whisper: isWhisperMode }));
         });
       }
-      mediaStream?.getTracks().forEach(t => t.stop());
-      mediaStream = null;
+      // REMOVED: mediaStream?.getTracks().forEach(t => t.stop());
+      // REMOVED: mediaStream = null;
     };
-
     mediaRecorder.start();
     isRecording = true;
     appState    = 'RECORDING';
