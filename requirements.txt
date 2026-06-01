@@ -35,6 +35,8 @@ python-dateutil>=2.9.0
 # ── Environment ───────────────────────────────────────────────────────────────
 python-dotenv>=1.0.0
 
+# ── Duck duck go search ──────────────────────────────────────────────────────────────
+duckduckgo-search>=7.0.0
 # ── Standard library (no install needed) ──────────────────────────────────────
 # sqlite3, json, re, time, asyncio, logging, base64, io, tempfile
 # os, pathlib, random, xml.etree.ElementTree
