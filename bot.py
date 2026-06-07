@@ -191,6 +191,7 @@ def main_keyboard() -> ReplyKeyboardMarkup:
     """Persistent reply keyboard — always visible at bottom. Full feature coverage."""
     return ReplyKeyboardMarkup(
         [
+            [KeyboardButton("/speak")],
             [KeyboardButton("🍳 Cook"), KeyboardButton("🗺️ Maps"), KeyboardButton("💬 Buddy"), KeyboardButton("📰 News")],
             [KeyboardButton("🎮 Simulate"), KeyboardButton("🔮 Interpret"), KeyboardButton("🇰🇷 Korean"), KeyboardButton("📊 Status")],
             [KeyboardButton("🛡️ SOS"), KeyboardButton("📅 Schedule"), KeyboardButton("🏆 Level"), KeyboardButton("⚙️ More")],
