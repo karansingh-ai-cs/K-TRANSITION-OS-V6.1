@@ -474,7 +474,7 @@ Respond ONLY with this JSON (no markdown):
     messages = [{"role": "user", "content": prompt}]
 
     # Primary: LLaMA 3.1 8B — 14.4K RPD — best for frequent quiz generation
-    raw = _call_groq_model(GROQ_LIGHT_MODEL, messages, max_tokens=400, temperature=0.3)
+    raw = _call_groq_model(GROQ_LIGHT_MODEL, messages, max_tokens=600, temperature=0.3)
 
     # Fallback: Gemma 4 (1500 RPD)
     if not raw:
