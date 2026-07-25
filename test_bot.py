@@ -237,6 +237,29 @@ def test_static_quiz():
     assert 0 <= correct_idx <= 3
 
 
+@test("Korean: Dictionary search")
+def test_korean_search():
+    from korean_teacher import search_vocab_and_phrases
+    res = search_vocab_and_phrases("hospital")
+    assert "병원" in res or "hospital" in res.lower()
+    res2 = search_vocab_and_phrases("hello")
+    assert "안녕" in res2 or "hello" in res2.lower()
+
+
+@test("Tracker: Advanced notes and deletion")
+def test_tracker_advanced():
+    from smart_tracker import create_tracker, log_entry, get_tracker_stats, delete_tracker, get_user_trackers
+    user_id = 11223344
+    tid = create_tracker(user_id, "test_exp", "💸", "₩")
+    log_entry(user_id, tid, 5000, "bought snack")
+    stats = get_tracker_stats(tid)
+    assert stats["count"] == 1
+    assert stats["total"] == 5000
+    delete_tracker(user_id, tid)
+    active = get_user_trackers(user_id)
+    assert not any(t["id"] == tid for t in active)
+
+
 # ── Other Module Tests ─────────────────────────────────────────
 
 @test("Schedule: First week checklist")
@@ -319,6 +342,8 @@ async def main():
         test_halal_detect,
         test_word_of_day,
         test_static_quiz,
+        test_korean_search,
+        test_tracker_advanced,
         test_schedule,
         test_visa,
         test_maps,

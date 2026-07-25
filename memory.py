@@ -162,6 +162,38 @@ def setup(db_path=None):
                     pass
 
         conn.commit()
+
+    # Automatically initialize other component tables
+    try:
+        from level_system import setup_level_tables
+        setup_level_tables()
+    except Exception as e:
+        logger.warning("Could not setup level tables: %s", e)
+
+    try:
+        from smart_tracker import setup_tracker_tables
+        setup_tracker_tables()
+    except Exception as e:
+        logger.warning("Could not setup tracker tables: %s", e)
+
+    try:
+        from emotional_weather import setup_weather_tables
+        setup_weather_tables()
+    except Exception as e:
+        logger.warning("Could not setup weather tables: %s", e)
+
+    try:
+        from bridge_builder import setup_bridge_tables
+        setup_bridge_tables()
+    except Exception as e:
+        logger.warning("Could not setup bridge tables: %s", e)
+
+    try:
+        from community_bot import setup_community_tables
+        setup_community_tables()
+    except Exception as e:
+        logger.warning("Could not setup community tables: %s", e)
+
     logger.info("Database ready at %s", DB_FILE)
 
 
