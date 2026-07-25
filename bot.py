@@ -918,9 +918,17 @@ async def cmd_setarrival(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     get_or_create_user(user_id)
-    word = get_word_of_the_day()
-    add_korean_word_learned(user_id)
-    await safe_send(update, format_word_of_day(word), reply_markup=nav_keyboard())
+    parts = update.message.text.strip().split(maxsplit=1)
+    query = parts[1].strip() if len(parts) > 1 else ""
+
+    if query:
+        from korean_teacher import search_vocab_and_phrases
+        result = search_vocab_and_phrases(query)
+        await safe_send(update, result, reply_markup=nav_keyboard())
+    else:
+        word = get_word_of_the_day()
+        add_korean_word_learned(user_id)
+        await safe_send(update, format_word_of_day(word), reply_markup=nav_keyboard())
 
 
 async def cmd_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1010,14 +1018,23 @@ async def handle_quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def cmd_phrase(update: Update, context: ContextTypes.DEFAULT_TYPE):
     parts = update.message.text.strip().split(maxsplit=1)
-    topic = parts[1].lower() if len(parts) > 1 else None
+    topic = parts[1].strip().lower() if len(parts) > 1 else ""
     if not topic:
         topics = get_topic_list()
         msg = "📚 Phrase Topics:\n\n" + "\n".join(f"• /phrase {t}" for t in topics)
         await safe_send(update, msg, reply_markup=nav_keyboard())
         return
-    phrases = get_survival_phrases(topic) or get_survival_phrases()
-    await safe_send(update, format_phrases_list(phrases, f"Phrases — {topic.title()}"), reply_markup=nav_keyboard())
+
+    # If the topic matches any predefined topic, show the phrases
+    available_topics = [t.lower() for t in get_topic_list()]
+    if topic in available_topics:
+        phrases = get_survival_phrases(topic)
+        await safe_send(update, format_phrases_list(phrases, f"Phrases — {topic.title()}"), reply_markup=nav_keyboard())
+    else:
+        # Otherwise, globally search!
+        from korean_teacher import search_vocab_and_phrases
+        result = search_vocab_and_phrases(topic)
+        await safe_send(update, result, reply_markup=nav_keyboard())
 
 
 async def cmd_alphabet(update: Update, context: ContextTypes.DEFAULT_TYPE):

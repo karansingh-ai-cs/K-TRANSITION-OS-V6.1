@@ -256,3 +256,57 @@ Speak in steady rhythm, equal stress on each syllable.
 2. Watch K-dramas with subtitles
 3. Language exchange apps: HelloTalk, Tandem
 4. Ask your uni about 언어교환 (language exchange) programs"""
+
+
+def search_vocab_and_phrases(query: str) -> str:
+    """Search both vocabulary and survival phrases for a query word."""
+    query = query.lower().strip()
+    results = []
+
+    # Search daily_vocab
+    vocab = LESSONS.get("daily_vocab", [])
+    for word in vocab:
+        if (query in word.get("korean", "").lower() or
+            query in word.get("meaning", "").lower() or
+            query in word.get("romanized", "").lower()):
+            results.append({
+                "type": "Vocabulary",
+                "korean": word.get("korean", ""),
+                "romanized": word.get("romanized", ""),
+                "meaning": word.get("meaning", ""),
+                "example": word.get("example", ""),
+                "tip": word.get("tip", "")
+            })
+
+    # Search survival_phrases
+    phrases = LESSONS.get("survival_phrases", [])
+    for p in phrases:
+        if (query in p.get("korean", "").lower() or
+            query in p.get("meaning", "").lower() or
+            query in p.get("romanized", "").lower()):
+            results.append({
+                "type": f"Phrase (Topic: {p.get('topic', 'General').title()})",
+                "korean": p.get("korean", ""),
+                "romanized": p.get("romanized", ""),
+                "meaning": p.get("meaning", ""),
+                "example": p.get("situation", "")
+            })
+
+    if not results:
+        return f"🔍 No Korean words or phrases found matching: '{query}'\nTry search terms like 'hospital', 'food', '약국', 'hello'."
+
+    msg = f"🔍 Search Results for '{query}':\n\n"
+    for r in results[:5]:  # limit to top 5 results for neatness
+        msg += f"📌 {r['type']}\n"
+        msg += f"🇰🇷  {r['korean']}\n"
+        msg += f"🔤  {r['romanized']}\n"
+        msg += f"💬  {r['meaning']}\n"
+        if r.get("example"):
+            msg += f"💡  {r['example']}\n"
+        if r.get("tip"):
+            msg += f"📝  {r['tip']}\n"
+        msg += "─────────────────\n\n"
+
+    if len(results) > 5:
+        msg += f"And {len(results) - 5} more results. Try a more specific search!"
+    return msg.strip()
