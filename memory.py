@@ -140,6 +140,29 @@ def setup(db_path=None):
             )
         """)
 
+        # Voice AI Negotiator MiniApp tables
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS negotiator_sessions (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id       TEXT,
+                session_date  TEXT,
+                goal          TEXT,
+                type          TEXT,
+                outcome       TEXT,
+                duration_mins REAL,
+                score         INTEGER
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS negotiator_stats (
+                user_id        TEXT PRIMARY KEY,
+                total_sessions INTEGER DEFAULT 0,
+                total_wins     INTEGER DEFAULT 0,
+                total_duration REAL    DEFAULT 0.0,
+                avg_score      REAL    DEFAULT 0.0
+            )
+        """)
+
         # NOTE: user_levels table removed — XP is managed solely by level_system.py (user_xp table)
 
         # Check existing columns first to avoid logging false duplicate column error messages

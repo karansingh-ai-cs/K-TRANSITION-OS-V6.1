@@ -260,6 +260,35 @@ def test_tracker_advanced():
     assert not any(t["id"] == tid for t in active)
 
 
+@test("Negotiator: Voice session persistence")
+def test_negotiator_persistence():
+    import sys
+    import pathlib
+    this_dir = pathlib.Path(__file__).resolve().parent
+    sys.path.append(str(this_dir / "negotiator2"))
+    from main import save_session_data
+    from db import get_conn
+
+    user_id = "test_user_neg"
+    save_session_data(user_id, "Bargain at market", "bargain", "Successfully bought at 15000", 2.5, 85)
+
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM negotiator_stats WHERE user_id = ?", (user_id,)).fetchone()
+        assert row is not None, "Negotiator stats row was not created!"
+        assert row["total_sessions"] == 1
+        assert row["avg_score"] == 85.0
+        assert row["total_wins"] == 1
+
+        sess = conn.execute("SELECT * FROM negotiator_sessions WHERE user_id = ?", (user_id,)).fetchone()
+        assert sess is not None, "Negotiator session record was not created!"
+        assert sess["goal"] == "Bargain at market"
+        assert sess["score"] == 85
+
+        conn.execute("DELETE FROM negotiator_stats WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM negotiator_sessions WHERE user_id = ?", (user_id,))
+        conn.commit()
+
+
 # ── Other Module Tests ─────────────────────────────────────────
 
 @test("Schedule: First week checklist")
@@ -344,6 +373,7 @@ async def main():
         test_static_quiz,
         test_korean_search,
         test_tracker_advanced,
+        test_negotiator_persistence,
         test_schedule,
         test_visa,
         test_maps,
