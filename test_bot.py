@@ -289,6 +289,19 @@ def test_negotiator_persistence():
         conn.commit()
 
 
+@test("Interactive: Guided Tour carousel and actions")
+def test_guided_tour():
+    from guided_tour import get_tour_step, format_tour_message
+    step1 = get_tour_step(1)
+    assert step1 is not None
+    assert "Step 1" in step1["title"]
+    assert step1["next_step"] == 2
+    assert step1["action_data"] == "tour_act_checklist"
+
+    msg = format_tour_message(1)
+    assert "가이드" in msg or "Tour" in msg
+
+
 # ── Other Module Tests ─────────────────────────────────────────
 
 @test("Schedule: First week checklist")
@@ -374,6 +387,7 @@ async def main():
         test_korean_search,
         test_tracker_advanced,
         test_negotiator_persistence,
+        test_guided_tour,
         test_schedule,
         test_visa,
         test_maps,
