@@ -129,11 +129,59 @@ async def route_intent(text: str, user_info: dict = None, current_state: str = "
 
 
 def _fallback(text: str) -> dict:
-    """Fallback when LLM router fails. Only emergencies are hardcoded."""
+    """Fallback when LLM router fails. Maps keyword clues to intents."""
     t = text.lower()
 
-    # Critical emergencies only — everything else goes to the AI expert
     if any(w in t for w in ["emergency", "police", "ambulance", "help me", "danger"]):
         return {"intent": "emergency", "entities": {}, "korean_query": None, "confidence": 0.8}
+
+    # Cook intent
+    if any(w in t for w in ["cook", "recipe", "kitchen", "egg", "cheese", "noodle", "eat", "food", "make"]):
+        ingredients = []
+        for w in ["egg", "cheese", "noodle", "onion", "rice", "kimchi", "tuna"]:
+            if w in t:
+                ingredients.append(w)
+        return {
+            "intent": "cook",
+            "entities": {"ingredients": ", ".join(ingredients) if ingredients else ""},
+            "korean_query": None,
+            "confidence": 0.7
+        }
+
+    # Map intent
+    if any(w in t for w in ["map", "find", "where", "near", "pharmacy", "hospital", "atm", "laundry", "convenience store", "direction", "get to"]):
+        query = "place"
+        for w in ["pharmacy", "hospital", "atm", "laundry", "convenience store", "restaurant"]:
+            if w in t:
+                query = w
+                break
+        translation_map = {
+            "pharmacy": "약국", "hospital": "병원", "atm": "ATM 현금인출기",
+            "laundry": "세탁소", "convenience store": "편의점", "restaurant": "식당"
+        }
+        korean_query = translation_map.get(query, "장소")
+        return {
+            "intent": "map",
+            "entities": {"query": query, "type": "nearby"},
+            "korean_query": korean_query,
+            "confidence": 0.7
+        }
+
+    # Buddy intent
+    if any(w in t for w in ["minsu", "buddy", "chat", "friend", "lonely", "homesick", "sad", "stressed", "depressed"]):
+        return {
+            "intent": "buddy",
+            "entities": {"mood": "sad" if any(x in t for x in ["lonely", "homesick", "sad", "stressed", "depressed"]) else "neutral"},
+            "korean_query": None,
+            "confidence": 0.7
+        }
+
+    # Visa intent
+    if any(w in t for w in ["visa", "arc", "immigration", "passport", "stay"]):
+        return {"intent": "visa", "entities": {}, "korean_query": None, "confidence": 0.7}
+
+    # Quiz intent
+    if any(w in t for w in ["quiz", "test", "question"]):
+        return {"intent": "quiz", "entities": {}, "korean_query": None, "confidence": 0.7}
 
     return {"intent": "general_question", "entities": {}, "korean_query": None, "confidence": 0.3}
