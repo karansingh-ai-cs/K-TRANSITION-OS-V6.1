@@ -232,3 +232,35 @@ def get_scenario_topics():
         "Each scenario tests your Korea survival IQ!\n"
         "Your choices have CONSEQUENCES 👀"
     )
+
+
+async def evaluate_ai_choice(scenario_text, choice_letter, user_info=None):
+    """Evaluate user's choice for AI-generated scenario using LLM."""
+    from ai_brain import call_groq
+    import re
+
+    system = SIM_JUDGE_PROMPT.format(
+        scenario=scenario_text,
+        choice=choice_letter.upper()
+    )
+    messages = [{"role": "user", "content": f"The user chose: {choice_letter.upper()}. Evaluate this choice."}]
+
+    try:
+        response = await asyncio.to_thread(call_groq, messages, system)
+        if response:
+            score_match = re.search(r"score[:\s]*([+-]?\d+)", response.lower())
+            score = 10  # default fallback score
+            if score_match:
+                try:
+                    score = int(score_match.group(1))
+                except ValueError:
+                    pass
+
+            response += "\n\n🎮 /simulate — Try another scenario!\n"
+            response += "🧠 /simulate topic — Choose a topic"
+
+            return response, score
+    except Exception as e:
+        logger.error(f"Culture sim AI judge failed: {e}")
+
+    return None

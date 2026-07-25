@@ -142,18 +142,24 @@ def setup(db_path=None):
 
         # NOTE: user_levels table removed — XP is managed solely by level_system.py (user_xp table)
 
+        # Check existing columns first to avoid logging false duplicate column error messages
+        cursor = conn.execute("PRAGMA table_info(users)")
+        existing_cols = [row["name"] for row in cursor.fetchall()]
+
         # Add affection score dynamically if it doesn't exist
-        try:
-            conn.execute("ALTER TABLE users ADD COLUMN affection_score INTEGER DEFAULT 0")
-        except Exception:
-            pass  # Column already exists
+        if "affection_score" not in existing_cols:
+            try:
+                conn.execute("ALTER TABLE users ADD COLUMN affection_score INTEGER DEFAULT 0")
+            except Exception:
+                pass
 
         # Self-Updating Memory: Add new profile columns for conversational learning
         for col, default in [("visa_type", "''"), ("major", "''"), ("age", "''"), ("country", "''")]:
-            try:
-                conn.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT DEFAULT {default}")
-            except Exception:
-                pass  # Column already exists
+            if col not in existing_cols:
+                try:
+                    conn.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT DEFAULT {default}")
+                except Exception:
+                    pass
 
         conn.commit()
     logger.info("Database ready at %s", DB_FILE)
