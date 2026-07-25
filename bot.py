@@ -1822,7 +1822,7 @@ async def cmd_track(update: Update, context: ContextTypes.DEFAULT_TYPE):
         emoji = guess_emoji(name)
         unit = guess_unit(name)
         tid = create_tracker(user_id, name, emoji, unit)
-        await update.message.reply_text(f"✅ Tracker created!\n\n{emoji} {name}" + (f" ({unit})" if unit else "") + f"\n\nLog: /track {name.lower()} [value]\nStats: /track stats {name.lower()}")
+        await update.message.reply_text(f"✅ Tracker created!\n\n{emoji} {name}" + (f" ({unit})" if unit else "") + f"\n\nLog: /track {name.lower()} [value] [optional note]\nStats: /track stats {name.lower()}\nDelete: /track delete {name.lower()}")
         return
     if sub == "stats" and len(parts) > 2:
         tracker = get_tracker_by_name(user_id, parts[2].strip())
@@ -1833,14 +1833,35 @@ async def cmd_track(update: Update, context: ContextTypes.DEFAULT_TYPE):
         recent = get_tracker_entries(tracker["id"], 5)
         await safe_send(update, format_tracker_stats(tracker, stats, recent), reply_markup=nav_keyboard())
         return
+    if sub == "delete" and len(parts) > 2:
+        tracker_arg = parts[2].strip()
+        tracker = None
+        if tracker_arg.isdigit():
+            trackers = get_user_trackers(user_id)
+            tracker = next((t for t in trackers if t["id"] == int(tracker_arg)), None)
+        else:
+            tracker = get_tracker_by_name(user_id, tracker_arg)
 
-    # Try logging: /track [name] [value]
+        if not tracker:
+            await update.message.reply_text(f"Tracker '{tracker_arg}' not found. /track to see your trackers.")
+            return
+
+        from smart_tracker import delete_tracker
+        delete_tracker(user_id, tracker["id"])
+        await update.message.reply_text(f"✅ Tracker '{tracker['name']}' deleted!")
+        return
+
+    # Try logging: /track [name] [value] [optional note]
     if len(parts) > 2:
         name = sub
+        val_and_note = parts[2].strip().split(maxsplit=1)
+        val_str = val_and_note[0]
+        note = val_and_note[1] if len(val_and_note) > 1 else ""
+
         try:
-            value = float(parts[2].replace(",", "").replace("₩", "").replace("won", ""))
+            value = float(val_str.replace(",", "").replace("₩", "").replace("won", "").replace("krw", ""))
         except ValueError:
-            await update.message.reply_text(f"Usage: /track {name} [number]\nExample: /track {name} 15000")
+            await update.message.reply_text(f"Usage: /track {name} [number] [optional note]\nExample: /track {name} 15000 lunch at cafeteria")
             return
         tracker = get_tracker_by_name(user_id, name)
         if not tracker:
@@ -1849,10 +1870,10 @@ async def cmd_track(update: Update, context: ContextTypes.DEFAULT_TYPE):
             unit = guess_unit(name)
             tid = create_tracker(user_id, name, emoji, unit)
             tracker = {"id": tid, "name": name, "emoji": emoji, "unit": unit}
-        log_entry(user_id, tracker["id"], value)
+        log_entry(user_id, tracker["id"], value, note)
         add_xp(user_id, XP_REWARDS["tracker_log"], "tracker_log")
         u = tracker.get("unit", "")
-        await update.message.reply_text(f"{tracker.get('emoji', '📊')} Logged: {value:,.0f} {u} to {tracker['name']}")
+        await update.message.reply_text(f"{tracker.get('emoji', '📊')} Logged: {value:,.0f} {u} to {tracker['name']}" + (f" ({note})" if note else ""))
         return
 
     trackers = get_user_trackers(user_id)
