@@ -114,9 +114,6 @@ from culture_sim import (
     get_random_scenario, format_scenario, evaluate_choice,
     generate_ai_scenario, get_scenario_topics, evaluate_ai_choice
 )
-from guided_tour import (
-    format_tour_message, get_tour_step
-)
 from smart_interpreter import interpret_text, get_phrase_list, get_formality_guide
 from apps_hacks import get_apps_list, get_hacks, get_ai_hack
 from level_system import setup_level_tables, add_xp, format_level_status, format_levelup, XP_REWARDS
@@ -200,31 +197,6 @@ def simulate_keyboard() -> InlineKeyboardMarkup:
         ],
         [InlineKeyboardButton("🏠 Back to Main Bot", callback_data="soft_exit_room")]
     ])
-
-
-def tour_keyboard(step_id: int) -> InlineKeyboardMarkup:
-    """Keyboard for guided tour carousel."""
-    from guided_tour import get_tour_step
-    step = get_tour_step(step_id)
-    buttons = []
-    if not step:
-        return InlineKeyboardMarkup([])
-
-    # 1. Feature Action button
-    if step.get("action_text") and step.get("action_data"):
-        buttons.append([InlineKeyboardButton(step["action_text"], callback_data=step["action_data"])])
-
-    # 2. Carousel Nav buttons
-    nav_row = []
-    if step.get("prev_step"):
-        nav_row.append(InlineKeyboardButton("⬅️ Back", callback_data=f"tour_nav_{step['prev_step']}"))
-    if step.get("next_step"):
-        nav_row.append(InlineKeyboardButton("Next ➡️", callback_data=f"tour_nav_{step['next_step']}"))
-    else:
-        nav_row.append(InlineKeyboardButton("🏁 Finish Tour", callback_data="soft_exit_room"))
-    buttons.append(nav_row)
-
-    return InlineKeyboardMarkup(buttons)
 
 
 def main_keyboard() -> ReplyKeyboardMarkup:
@@ -1065,16 +1037,6 @@ async def cmd_phrase(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await safe_send(update, result, reply_markup=nav_keyboard())
 
 
-async def cmd_tour(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Starts the Senior's 1-Minute Interactive Guided Tour Carousel."""
-    user_id = update.effective_user.id
-    get_or_create_user(user_id)
-    clear_state(user_id)  # clean slate
-
-    msg = format_tour_message(1)
-    await safe_send(update, msg, reply_markup=tour_keyboard(1))
-
-
 async def cmd_alphabet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await safe_send(update, get_alphabet_lesson(), reply_markup=nav_keyboard())
 
@@ -1529,59 +1491,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Quiz callbacks
     if data.startswith("quiz_"):
         await handle_quiz_answer(update, context)
-        return
-
-    # Guided Tour Carousel navigation callbacks
-    if data.startswith("tour_nav_"):
-        step_id = int(data.replace("tour_nav_", ""))
-        msg = format_tour_message(step_id)
-        try:
-            await query.edit_message_text(msg, reply_markup=tour_keyboard(step_id))
-        except Exception:
-            pass
-        return
-
-    # Guided Tour instant action callbacks
-    if data.startswith("tour_act_"):
-        action = data.replace("tour_act_", "")
-        user_id = query.from_user.id
-        user_info = get_or_create_user(user_id)
-        kb = main_keyboard()
-
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
-
-        if action == "checklist":
-            checklist_items = get_checklist(user_id, user_info.get("diet", "none"))
-            msg = "📅 **Day 1-2 Survival Checklist**:\n\n"
-            for item in checklist_items[:6]:
-                status = "✅" if item["done"] else "⬜"
-                msg += f"{status} {item['emoji']} {item['title']} ({item['phase']})\n"
-            msg += "\nTo manage this, type `/schedule` or `/task list` anytime!"
-            await context.bot.send_message(chat_id=query.message.chat_id, text=msg, reply_markup=room_keyboard())
-
-        elif action == "chef":
-            set_state(user_id, State.COOK_WAITING_INGREDIENTS)
-            await context.bot.send_message(
-                chat_id=query.message.chat_id,
-                text="🧑‍🍳 **Dorm Chef Active!**\nWhat ingredients do you have in your dorm/convenience store?\n\nTell me (e.g. 'eggs, cheese, instant noodles') and I'll give you a microwave recipe!",
-                reply_markup=room_keyboard()
-            )
-
-        elif action == "buddy":
-            db_history = get_buddy_history(user_id, limit=6)
-            set_state(user_id, State.BUDDY_ACTIVE, {"history": db_history})
-            await context.bot.send_chat_action(chat_id=query.message.chat_id, action=ChatAction.TYPING)
-            response = await chat_with_buddy("hey! what's up?", user_info, db_history)
-            save_buddy_message(user_id, "user", "hey! what's up?")
-            save_buddy_message(user_id, "assistant", response)
-            await context.bot.send_message(
-                chat_id=query.message.chat_id,
-                text=f"🧑 **Minsu**:\n{response}\n\nYou're now chatting with Minsu! Say anything to reply.",
-                reply_markup=room_keyboard()
-            )
         return
 
     # Simulator Option Callbacks
@@ -2445,7 +2354,6 @@ def main():
         ("removeallergy", cmd_remove_allergy), ("setuni", cmd_setuni),
         ("setcity", cmd_setcity), ("setarrival", cmd_setarrival),
         ("word", cmd_word), ("quiz", cmd_quiz), ("phrase", cmd_phrase),
-        ("tour", cmd_tour),
         ("alphabet", cmd_alphabet), ("numbers", cmd_numbers),
         ("pronunciation", cmd_pronunciation), ("progress", cmd_progress),
         ("schedule", cmd_schedule), ("month", cmd_month),
