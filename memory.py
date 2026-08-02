@@ -140,22 +140,83 @@ def setup(db_path=None):
             )
         """)
 
+        # Voice AI Negotiator MiniApp tables
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS negotiator_sessions (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id       TEXT,
+                session_date  TEXT,
+                goal          TEXT,
+                type          TEXT,
+                outcome       TEXT,
+                duration_mins REAL,
+                score         INTEGER
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS negotiator_stats (
+                user_id        TEXT PRIMARY KEY,
+                total_sessions INTEGER DEFAULT 0,
+                total_wins     INTEGER DEFAULT 0,
+                total_duration REAL    DEFAULT 0.0,
+                avg_score      REAL    DEFAULT 0.0
+            )
+        """)
+
         # NOTE: user_levels table removed — XP is managed solely by level_system.py (user_xp table)
 
+        # Check existing columns first to avoid logging false duplicate column error messages
+        cursor = conn.execute("PRAGMA table_info(users)")
+        existing_cols = [row["name"] for row in cursor.fetchall()]
+
         # Add affection score dynamically if it doesn't exist
-        try:
-            conn.execute("ALTER TABLE users ADD COLUMN affection_score INTEGER DEFAULT 0")
-        except Exception:
-            pass  # Column already exists
+        if "affection_score" not in existing_cols:
+            try:
+                conn.execute("ALTER TABLE users ADD COLUMN affection_score INTEGER DEFAULT 0")
+            except Exception:
+                pass
 
         # Self-Updating Memory: Add new profile columns for conversational learning
         for col, default in [("visa_type", "''"), ("major", "''"), ("age", "''"), ("country", "''")]:
-            try:
-                conn.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT DEFAULT {default}")
-            except Exception:
-                pass  # Column already exists
+            if col not in existing_cols:
+                try:
+                    conn.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT DEFAULT {default}")
+                except Exception:
+                    pass
 
         conn.commit()
+
+    # Automatically initialize other component tables
+    try:
+        from level_system import setup_level_tables
+        setup_level_tables()
+    except Exception as e:
+        logger.warning("Could not setup level tables: %s", e)
+
+    try:
+        from smart_tracker import setup_tracker_tables
+        setup_tracker_tables()
+    except Exception as e:
+        logger.warning("Could not setup tracker tables: %s", e)
+
+    try:
+        from emotional_weather import setup_weather_tables
+        setup_weather_tables()
+    except Exception as e:
+        logger.warning("Could not setup weather tables: %s", e)
+
+    try:
+        from bridge_builder import setup_bridge_tables
+        setup_bridge_tables()
+    except Exception as e:
+        logger.warning("Could not setup bridge tables: %s", e)
+
+    try:
+        from community_bot import setup_community_tables
+        setup_community_tables()
+    except Exception as e:
+        logger.warning("Could not setup community tables: %s", e)
+
     logger.info("Database ready at %s", DB_FILE)
 
 

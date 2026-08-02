@@ -213,12 +213,13 @@ def start_scheduler(application):
         try:
             with get_conn() as conn:
                 rows = conn.execute("SELECT user_id FROM users").fetchall()
-            for row in rows:
+                user_ids = [row["user_id"] for row in rows]
+            for uid in user_ids:
                 try:
-                    await coro_fn(bot, row["user_id"], *args)
+                    await coro_fn(bot, uid, *args)
                     await asyncio.sleep(0.3)  # stagger: ~3 users/sec max
                 except Exception as e:
-                    logger.warning("Notification error for user %s: %s", row["user_id"], e)
+                    logger.warning("Notification error for user %s: %s", uid, e)
         except Exception as e:
             logger.error("run_for_all_users error: %s", e)
 
@@ -235,17 +236,20 @@ def start_scheduler(application):
                     "SELECT id, user_id, message FROM pending_notifications "
                     "WHERE sent = 0 ORDER BY created_at ASC LIMIT 20"
                 ).fetchall()
-                for row in pending:
-                    try:
-                        await bot.send_message(chat_id=row["user_id"], text=row["message"])
+                pending_list = [{"id": row["id"], "user_id": row["user_id"], "message": row["message"]} for row in pending]
+
+            for row in pending_list:
+                try:
+                    await bot.send_message(chat_id=row["user_id"], text=row["message"])
+                    with get_conn() as conn:
                         conn.execute(
                             "UPDATE pending_notifications SET sent = 1 WHERE id = ?",
                             (row["id"],)
                         )
                         conn.commit()
-                        await asyncio.sleep(0.05)
-                    except Exception as e:
-                        logger.warning("Queue flush error for user %d: %s", row["user_id"], e)
+                    await asyncio.sleep(0.05)
+                except Exception as e:
+                    logger.warning("Queue flush error for user %d: %s", row["user_id"], e)
         except Exception as e:
             logger.error("Notification queue flush error: %s", e)
 

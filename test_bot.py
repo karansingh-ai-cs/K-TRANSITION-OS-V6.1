@@ -237,6 +237,58 @@ def test_static_quiz():
     assert 0 <= correct_idx <= 3
 
 
+@test("Korean: Dictionary search")
+def test_korean_search():
+    from korean_teacher import search_vocab_and_phrases
+    res = search_vocab_and_phrases("hospital")
+    assert "병원" in res or "hospital" in res.lower()
+    res2 = search_vocab_and_phrases("hello")
+    assert "안녕" in res2 or "hello" in res2.lower()
+
+
+@test("Tracker: Advanced notes and deletion")
+def test_tracker_advanced():
+    from smart_tracker import create_tracker, log_entry, get_tracker_stats, delete_tracker, get_user_trackers
+    user_id = 11223344
+    tid = create_tracker(user_id, "test_exp", "💸", "₩")
+    log_entry(user_id, tid, 5000, "bought snack")
+    stats = get_tracker_stats(tid)
+    assert stats["count"] == 1
+    assert stats["total"] == 5000
+    delete_tracker(user_id, tid)
+    active = get_user_trackers(user_id)
+    assert not any(t["id"] == tid for t in active)
+
+
+@test("Negotiator: Voice session persistence")
+def test_negotiator_persistence():
+    import sys
+    import pathlib
+    this_dir = pathlib.Path(__file__).resolve().parent
+    sys.path.append(str(this_dir / "negotiator2"))
+    from main import save_session_data
+    from db import get_conn
+
+    user_id = "test_user_neg"
+    save_session_data(user_id, "Bargain at market", "bargain", "Successfully bought at 15000", 2.5, 85)
+
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM negotiator_stats WHERE user_id = ?", (user_id,)).fetchone()
+        assert row is not None, "Negotiator stats row was not created!"
+        assert row["total_sessions"] == 1
+        assert row["avg_score"] == 85.0
+        assert row["total_wins"] == 1
+
+        sess = conn.execute("SELECT * FROM negotiator_sessions WHERE user_id = ?", (user_id,)).fetchone()
+        assert sess is not None, "Negotiator session record was not created!"
+        assert sess["goal"] == "Bargain at market"
+        assert sess["score"] == 85
+
+        conn.execute("DELETE FROM negotiator_stats WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM negotiator_sessions WHERE user_id = ?", (user_id,))
+        conn.commit()
+
+
 # ── Other Module Tests ─────────────────────────────────────────
 
 @test("Schedule: First week checklist")
@@ -319,6 +371,9 @@ async def main():
         test_halal_detect,
         test_word_of_day,
         test_static_quiz,
+        test_korean_search,
+        test_tracker_advanced,
+        test_negotiator_persistence,
         test_schedule,
         test_visa,
         test_maps,

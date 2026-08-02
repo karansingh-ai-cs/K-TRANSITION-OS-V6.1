@@ -112,7 +112,7 @@ from sos_mode import format_sos_general, format_sos_guide, format_sos_phrases
 from visa_radar import get_visa_status, format_visa_status, format_visa_checklist
 from culture_sim import (
     get_random_scenario, format_scenario, evaluate_choice,
-    generate_ai_scenario, get_scenario_topics
+    generate_ai_scenario, get_scenario_topics, evaluate_ai_choice
 )
 from smart_interpreter import interpret_text, get_phrase_list, get_formality_guide
 from apps_hacks import get_apps_list, get_hacks, get_ai_hack
@@ -183,6 +183,18 @@ def nav_keyboard() -> InlineKeyboardMarkup:
 def room_keyboard() -> InlineKeyboardMarkup:
     """Escape hatch button shown inside active Rooms (Buddy, Chef, Practice, etc.)."""
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Back to Main Bot", callback_data="soft_exit_room")]
+    ])
+
+
+def simulate_keyboard() -> InlineKeyboardMarkup:
+    """Keyboard for simulator options."""
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("A", callback_data="sim_choice_a"),
+            InlineKeyboardButton("B", callback_data="sim_choice_b"),
+            InlineKeyboardButton("C", callback_data="sim_choice_c")
+        ],
         [InlineKeyboardButton("🏠 Back to Main Bot", callback_data="soft_exit_room")]
     ])
 
@@ -289,7 +301,7 @@ async def _handle_button_text(update, context, user_id, user_info, text):
     elif action == "sim_start":
         scenario = get_random_scenario()
         set_state(user_id, State.SIM_WAITING_CHOICE, {"scenario": scenario})
-        await safe_send(update, format_scenario(scenario), reply_markup=room_keyboard())
+        await safe_send(update, format_scenario(scenario), reply_markup=simulate_keyboard())
     elif action == "interpret_start":
         set_state(user_id, State.INTERPRET_WAITING_TEXT)
         await safe_send(update, "🔮 Send me any text!\n\n• Korean → translate + cultural breakdown\n• English → Korean version with formality levels\n• Situation: \"how do I tell my professor I'll be late\"", reply_markup=room_keyboard())
@@ -359,19 +371,33 @@ async def _handle_active_state(update, context, user_id, user_info, text, state)
         ctx = get_context(user_id)
         scenario = ctx.get("scenario")
         if scenario and text.strip().lower() in ("a", "b", "c"):
-            result = evaluate_choice(scenario, text.strip())
-            clear_state(user_id)
-            if result:
-                msg, score = result
-                if score > 20:
-                    add_xp(user_id, XP_REWARDS["simulate_perfect"], "simulate_perfect")
-                elif score > 0:
-                    add_xp(user_id, XP_REWARDS["simulate_ok"], "simulate_ok")
-                await safe_send(update, msg, reply_markup=room_keyboard())
+            if isinstance(scenario, dict) and scenario.get("is_ai"):
+                await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+                eval_res = await evaluate_ai_choice(scenario.get("text"), text.strip(), user_info)
+                clear_state(user_id)
+                if eval_res:
+                    msg, score = eval_res
+                    if score > 20:
+                        add_xp(user_id, XP_REWARDS["simulate_perfect"], "simulate_perfect")
+                    elif score > 0:
+                        add_xp(user_id, XP_REWARDS["simulate_ok"], "simulate_ok")
+                    await safe_send(update, msg, reply_markup=room_keyboard())
+                else:
+                    await safe_send(update, "Couldn't evaluate. Try /simulate again!", reply_markup=room_keyboard())
             else:
-                await safe_send(update, "Couldn't evaluate. Try /simulate again!", reply_markup=room_keyboard())
+                result = evaluate_choice(scenario, text.strip())
+                clear_state(user_id)
+                if result:
+                    msg, score = result
+                    if score > 20:
+                        add_xp(user_id, XP_REWARDS["simulate_perfect"], "simulate_perfect")
+                    elif score > 0:
+                        add_xp(user_id, XP_REWARDS["simulate_ok"], "simulate_ok")
+                    await safe_send(update, msg, reply_markup=room_keyboard())
+                else:
+                    await safe_send(update, "Couldn't evaluate. Try /simulate again!", reply_markup=room_keyboard())
         else:
-            await safe_send(update, "Pick A, B, or C! 👆", reply_markup=room_keyboard())
+            await safe_send(update, "Pick A, B, or C! 👆", reply_markup=simulate_keyboard())
 
     elif state == State.PRACTICE_ACTIVE:
         ctx = get_context(user_id)
@@ -892,9 +918,17 @@ async def cmd_setarrival(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     get_or_create_user(user_id)
-    word = get_word_of_the_day()
-    add_korean_word_learned(user_id)
-    await safe_send(update, format_word_of_day(word), reply_markup=nav_keyboard())
+    parts = update.message.text.strip().split(maxsplit=1)
+    query = parts[1].strip() if len(parts) > 1 else ""
+
+    if query:
+        from korean_teacher import search_vocab_and_phrases
+        result = search_vocab_and_phrases(query)
+        await safe_send(update, result, reply_markup=nav_keyboard())
+    else:
+        word = get_word_of_the_day()
+        add_korean_word_learned(user_id)
+        await safe_send(update, format_word_of_day(word), reply_markup=nav_keyboard())
 
 
 async def cmd_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -984,14 +1018,23 @@ async def handle_quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def cmd_phrase(update: Update, context: ContextTypes.DEFAULT_TYPE):
     parts = update.message.text.strip().split(maxsplit=1)
-    topic = parts[1].lower() if len(parts) > 1 else None
+    topic = parts[1].strip().lower() if len(parts) > 1 else ""
     if not topic:
         topics = get_topic_list()
         msg = "📚 Phrase Topics:\n\n" + "\n".join(f"• /phrase {t}" for t in topics)
         await safe_send(update, msg, reply_markup=nav_keyboard())
         return
-    phrases = get_survival_phrases(topic) or get_survival_phrases()
-    await safe_send(update, format_phrases_list(phrases, f"Phrases — {topic.title()}"), reply_markup=nav_keyboard())
+
+    # If the topic matches any predefined topic, show the phrases
+    available_topics = [t.lower() for t in get_topic_list()]
+    if topic in available_topics:
+        phrases = get_survival_phrases(topic)
+        await safe_send(update, format_phrases_list(phrases, f"Phrases — {topic.title()}"), reply_markup=nav_keyboard())
+    else:
+        # Otherwise, globally search!
+        from korean_teacher import search_vocab_and_phrases
+        result = search_vocab_and_phrases(topic)
+        await safe_send(update, result, reply_markup=nav_keyboard())
 
 
 async def cmd_alphabet(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1450,6 +1493,51 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await handle_quiz_answer(update, context)
         return
 
+    # Simulator Option Callbacks
+    if data.startswith("sim_choice_"):
+        choice_letter = data.replace("sim_choice_", "")
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        user_id = query.from_user.id
+        user_info = get_or_create_user(user_id)
+        state = get_state(user_id)
+        if state == State.SIM_WAITING_CHOICE:
+            ctx = get_context(user_id)
+            scenario = ctx.get("scenario")
+            if scenario:
+                if isinstance(scenario, dict) and scenario.get("is_ai"):
+                    await context.bot.send_chat_action(chat_id=query.message.chat_id, action=ChatAction.TYPING)
+                    eval_res = await evaluate_ai_choice(scenario.get("text"), choice_letter, user_info)
+                    clear_state(user_id)
+                    if eval_res:
+                        msg, score = eval_res
+                        if score > 20:
+                            add_xp(user_id, XP_REWARDS["simulate_perfect"], "simulate_perfect")
+                        elif score > 0:
+                            add_xp(user_id, XP_REWARDS["simulate_ok"], "simulate_ok")
+                        await context.bot.send_message(chat_id=query.message.chat_id, text=msg, reply_markup=room_keyboard())
+                    else:
+                        await context.bot.send_message(chat_id=query.message.chat_id, text="Couldn't evaluate. Try /simulate again!", reply_markup=room_keyboard())
+                else:
+                    result = evaluate_choice(scenario, choice_letter)
+                    clear_state(user_id)
+                    if result:
+                        msg, score = result
+                        if score > 20:
+                            add_xp(user_id, XP_REWARDS["simulate_perfect"], "simulate_perfect")
+                        elif score > 0:
+                            add_xp(user_id, XP_REWARDS["simulate_ok"], "simulate_ok")
+                        await context.bot.send_message(chat_id=query.message.chat_id, text=msg, reply_markup=room_keyboard())
+                    else:
+                        await context.bot.send_message(chat_id=query.message.chat_id, text="Couldn't evaluate. Try /simulate again!", reply_markup=room_keyboard())
+            else:
+                await context.bot.send_message(chat_id=query.message.chat_id, text="Pick A, B, or C! 👆", reply_markup=simulate_keyboard())
+        else:
+            await context.bot.send_message(chat_id=query.message.chat_id, text="No active simulation. Type /simulate to start!", reply_markup=room_keyboard())
+        return
+
     user_id = query.from_user.id
     user_info = get_or_create_user(user_id)
     kb = main_keyboard()
@@ -1533,7 +1621,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif module == "simulate":
             scenario = get_random_scenario()
             set_state(user_id, State.SIM_WAITING_CHOICE, {"scenario": scenario})
-            await context.bot.send_message(chat_id=query.message.chat_id, text=format_scenario(scenario), reply_markup=room_keyboard())
+            await context.bot.send_message(chat_id=query.message.chat_id, text=format_scenario(scenario), reply_markup=simulate_keyboard())
 
         elif module == "practice":
             await context.bot.send_message(chat_id=query.message.chat_id, text=get_scenario_list(), reply_markup=kb)
@@ -1734,7 +1822,7 @@ async def cmd_track(update: Update, context: ContextTypes.DEFAULT_TYPE):
         emoji = guess_emoji(name)
         unit = guess_unit(name)
         tid = create_tracker(user_id, name, emoji, unit)
-        await update.message.reply_text(f"✅ Tracker created!\n\n{emoji} {name}" + (f" ({unit})" if unit else "") + f"\n\nLog: /track {name.lower()} [value]\nStats: /track stats {name.lower()}")
+        await update.message.reply_text(f"✅ Tracker created!\n\n{emoji} {name}" + (f" ({unit})" if unit else "") + f"\n\nLog: /track {name.lower()} [value] [optional note]\nStats: /track stats {name.lower()}\nDelete: /track delete {name.lower()}")
         return
     if sub == "stats" and len(parts) > 2:
         tracker = get_tracker_by_name(user_id, parts[2].strip())
@@ -1745,14 +1833,35 @@ async def cmd_track(update: Update, context: ContextTypes.DEFAULT_TYPE):
         recent = get_tracker_entries(tracker["id"], 5)
         await safe_send(update, format_tracker_stats(tracker, stats, recent), reply_markup=nav_keyboard())
         return
+    if sub == "delete" and len(parts) > 2:
+        tracker_arg = parts[2].strip()
+        tracker = None
+        if tracker_arg.isdigit():
+            trackers = get_user_trackers(user_id)
+            tracker = next((t for t in trackers if t["id"] == int(tracker_arg)), None)
+        else:
+            tracker = get_tracker_by_name(user_id, tracker_arg)
 
-    # Try logging: /track [name] [value]
+        if not tracker:
+            await update.message.reply_text(f"Tracker '{tracker_arg}' not found. /track to see your trackers.")
+            return
+
+        from smart_tracker import delete_tracker
+        delete_tracker(user_id, tracker["id"])
+        await update.message.reply_text(f"✅ Tracker '{tracker['name']}' deleted!")
+        return
+
+    # Try logging: /track [name] [value] [optional note]
     if len(parts) > 2:
         name = sub
+        val_and_note = parts[2].strip().split(maxsplit=1)
+        val_str = val_and_note[0]
+        note = val_and_note[1] if len(val_and_note) > 1 else ""
+
         try:
-            value = float(parts[2].replace(",", "").replace("₩", "").replace("won", ""))
+            value = float(val_str.replace(",", "").replace("₩", "").replace("won", "").replace("krw", ""))
         except ValueError:
-            await update.message.reply_text(f"Usage: /track {name} [number]\nExample: /track {name} 15000")
+            await update.message.reply_text(f"Usage: /track {name} [number] [optional note]\nExample: /track {name} 15000 lunch at cafeteria")
             return
         tracker = get_tracker_by_name(user_id, name)
         if not tracker:
@@ -1761,10 +1870,10 @@ async def cmd_track(update: Update, context: ContextTypes.DEFAULT_TYPE):
             unit = guess_unit(name)
             tid = create_tracker(user_id, name, emoji, unit)
             tracker = {"id": tid, "name": name, "emoji": emoji, "unit": unit}
-        log_entry(user_id, tracker["id"], value)
+        log_entry(user_id, tracker["id"], value, note)
         add_xp(user_id, XP_REWARDS["tracker_log"], "tracker_log")
         u = tracker.get("unit", "")
-        await update.message.reply_text(f"{tracker.get('emoji', '📊')} Logged: {value:,.0f} {u} to {tracker['name']}")
+        await update.message.reply_text(f"{tracker.get('emoji', '📊')} Logged: {value:,.0f} {u} to {tracker['name']}" + (f" ({note})" if note else ""))
         return
 
     trackers = get_user_trackers(user_id)
@@ -1842,13 +1951,19 @@ async def cmd_simulate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if sub and sub not in ("a", "b", "c"):
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
         result = await generate_ai_scenario(sub, user_info)
-        await safe_send(update, result, reply_markup=nav_keyboard())
+        set_state(user_id, State.SIM_WAITING_CHOICE, {
+            "scenario": {
+                "is_ai": True,
+                "text": result
+            }
+        })
+        await safe_send(update, result, reply_markup=simulate_keyboard())
         return
 
     # Default: random pre-built scenario
     scenario = get_random_scenario()
     set_state(user_id, State.SIM_WAITING_CHOICE, {"scenario": scenario})
-    await safe_send(update, format_scenario(scenario), reply_markup=main_keyboard())
+    await safe_send(update, format_scenario(scenario), reply_markup=simulate_keyboard())
 
 
 async def cmd_interpret(update: Update, context: ContextTypes.DEFAULT_TYPE):
