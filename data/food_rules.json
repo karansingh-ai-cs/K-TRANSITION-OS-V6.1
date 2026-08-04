@@ -1,12 +1,13 @@
 {
     "haram_ingredients": [
-        "pork", "pig", "bacon", "ham", "lard", "gelatin",
-        "alcohol", "wine", "beer", "soju", "makgeolli", "mirin", "cooking wine",
-        "소주", "맥주", "막걸리", "돼지", "돼지고기",
+        "pork", "pig", "bacon", "ham", "lard", "gelatin", "gelatine", "pig oil", "pig fat",
+        "alcohol", "wine", "beer", "soju", "makgeolli", "mirin", "cooking wine", "rum", "whiskey", "vodka",
+        "소주", "맥주", "막걸리", "돼지", "돼지고기", "돼지기름", "젤라틴",
         "삼겹살", "samgyeopsal", "목살", "moksal",
         "족발", "jokbal", "보쌈", "bossam", "순대", "sundae",
-        "선지", "항정살", "hangjeongsal", "돈", "돈육",
-        "요리술", "청주", "pepperoni", "salami"
+        "선지", "항정살", "hangjeongsal", "돈", "돈육", "돈까스", "돈가스",
+        "요리술", "청주", "pepperoni", "salami", "소시지", "소세지", "햄",
+        "shortening", "쇼트닝", "emulsifier", "유화제", "marshmallow", "마시멜로", "마시멜로우"
     ],
     "rules": [
         {
@@ -75,6 +76,28 @@
                 "Start with 순한 맛 (mild flavor) option",
                 "Drink milk or eat rice to neutralize spice — NOT water",
                 "Say 덜 맵게 해주세요 (please make it less spicy)"
+            ]
+        },
+        {
+            "id": "F007",
+            "keywords": ["gelatin", "gelatine", "젤라틴", "marshmallow", "마시멜로", "마시멜로우", "jelly", "젤리"],
+            "risk": "HIGH",
+            "problem": "Many Korean jellies, candies, and marshmallows contain GELATIN (젤라틴) derived from pig skin/bones. Not halal or vegetarian.",
+            "action": [
+                "Avoid typical jellies (like Haribo, unless marked halal) and marshmallows.",
+                "Check ingredients for 식물성 젤라틴 (vegetable pectin/agar) as a safe alternative.",
+                "Traditional Korean sweets like 떡 (rice cakes) are gelatin-free and safe!"
+            ]
+        },
+        {
+            "id": "F008",
+            "keywords": ["shortening", "쇼트닝", "emulsifier", "유화제", "lard", "돼지기름"],
+            "risk": "MEDIUM",
+            "problem": "Processed breads, pastries, and ramen may use SHORTENING (쇼트닝) or EMULSIFIERS (유화제) derived from animal fats (including lard/pork).",
+            "action": [
+                "Check label for 식물성 유지 (vegetable fat) or 대두 (soy lecithin) which are safe.",
+                "If it only says '쇼트닝' or '유화제' without origin, it is doubtful (Mashbooh).",
+                "Halal-certified products in Asian marts are completely safe."
             ]
         }
     ]

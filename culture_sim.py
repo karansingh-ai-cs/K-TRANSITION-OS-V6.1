@@ -238,6 +238,7 @@ async def evaluate_ai_choice(scenario_text, choice_letter, user_info=None):
     """Evaluate user's choice for AI-generated scenario using LLM."""
     from ai_brain import call_groq
     import re
+    import asyncio
 
     system = SIM_JUDGE_PROMPT.format(
         scenario=scenario_text,

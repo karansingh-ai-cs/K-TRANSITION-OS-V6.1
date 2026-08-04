@@ -63,6 +63,18 @@
                 "Boiler (보일러) breaking in winter = urgent. Escalate immediately.",
                 "If landlord refuses: contact 주택임대차분쟁조정위원회 (housing dispute committee)"
             ]
+        },
+        {
+            "id": "H006",
+            "keywords": ["deposit return", "return deposit", "보증금 반환", "won't return", "landlord keeps", "cleaning fee", "damage fee"],
+            "risk": "HIGH",
+            "problem": "Landlord refusing to return the deposit (보증금) or making unfair deductions for cleaning/repairs is a common dispute at checkout.",
+            "action": [
+                "Record video and photos of the clean, empty room on checkout day as proof.",
+                "Normal wear-and-tear is legally NOT the tenant's responsibility.",
+                "If the landlord delays, do NOT move out your physical belongings entirely, or apply for 임차권등기명령 (Leasehold Registration Order) at the local court to keep your priority rights.",
+                "Contact the Housing Dispute Committee (주택임대차분쟁조정위원회) or call 1345 for help."
+            ]
         }
     ]
 }
