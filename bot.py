@@ -416,6 +416,49 @@ async def _handle_active_state(update, context, user_id, user_info, text, state)
     elif state == State.BUDDY_ACTIVE:
         ctx = get_context(user_id)
         history = ctx.get("history", [])
+
+        # Zero-Command: Silently extract trackers/tasks/reminders within Buddy chat
+        side_confirm = ""
+        try:
+            intent_result = await route_intent(text, user_info, current_state="IDLE")
+            if intent_result["intent"] == "log_expense":
+                entities = intent_result.get("entities", {})
+                try:
+                    amount = float(entities.get("amount", 0))
+                except (ValueError, TypeError):
+                    amount = 0.0
+                category = entities.get("category", "other").lower().strip()
+                description = entities.get("description", "").strip() or "expense"
+                if amount > 0:
+                    from smart_tracker import get_tracker_by_name, create_tracker, log_entry
+                    tracker = get_tracker_by_name(user_id, "spending")
+                    if not tracker:
+                        tid = create_tracker(user_id, "spending", "💸", "₩")
+                        tracker = {"id": tid, "name": "spending", "emoji": "💸", "unit": "₩"}
+                    log_entry(user_id, tracker["id"], amount, note=f"{category}: {description}")
+                    side_confirm = f"\n*(Note: Silently logged ₩{amount:,.0f} to your spending tracker! 💸)*"
+
+            elif intent_result["intent"] == "add_task_natural":
+                entities = intent_result.get("entities", {})
+                task_title = entities.get("task", "").strip()
+                if task_title:
+                    from memory import add_task
+                    add_task(user_id, task_title)
+                    side_confirm = f"\n*(Note: Added task '{task_title}' to your checklist! ✅)*"
+
+                    # Parse minutes if user requested a quick timer/reminder
+                    import re
+                    min_match = re.search(r"(\d+)\s*(?:min|minute)", text.lower())
+                    if min_match:
+                        minutes = int(min_match.group(1))
+                        from datetime import datetime, UTC, timedelta
+                        from notifier import add_custom_reminder
+                        run_date = datetime.now(UTC) + timedelta(minutes=minutes)
+                        add_custom_reminder(user_id, task_title, run_date)
+                        side_confirm += f"\n*(Note: Scheduled alert for '{task_title}' in {minutes} minutes! ⏰)*"
+        except Exception as e:
+            logger.warning("Silent buddy tracker/task extraction failed: %s", e)
+
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
         await asyncio.sleep(random.uniform(0.5, 1.8))
         response = await chat_with_buddy(text, user_info, history)
@@ -424,8 +467,13 @@ async def _handle_active_state(update, context, user_id, user_info, text, state)
         history.append({"role": "user", "content": text})
         history.append({"role": "assistant", "content": response})
         if len(history) > 20:
-            ctx["history"] = history[-16:]
-        await safe_send(update, f"🧑 민수:\n{response}", reply_markup=room_keyboard())
+            history = history[-16:]
+        set_state(user_id, State.BUDDY_ACTIVE, {"history": history})
+
+        reply_msg = f"🧑 민수:\n{response}"
+        if side_confirm:
+            reply_msg += f"\n\n{side_confirm}"
+        await safe_send(update, reply_msg, reply_markup=room_keyboard())
 
     elif state == State.INTERPRET_WAITING_TEXT:
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)

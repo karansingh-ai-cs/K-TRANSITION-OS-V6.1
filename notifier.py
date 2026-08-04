@@ -74,20 +74,25 @@ async def morning_briefing(bot: Bot, user_id: int):
         lines.append(f"✅ Today: {pred['micro_action']}")
         lines.append("(/predict for full details)")
 
-    # Spending stats
+    # Spending & Habit Tracker recap
     try:
-        from smart_tracker import get_tracker_by_name, get_yesterday_total, get_month_total
-        tracker = get_tracker_by_name(user_id, "spending")
-        if not tracker:
-            tracker = get_tracker_by_name(user_id, "expense")
-        if tracker:
-            yesterday_val = get_yesterday_total(user_id, tracker["id"])
-            month_val = get_month_total(user_id, tracker["id"])
-            unit = tracker.get("unit", "₩")
-            lines.append(f"\n💰 Yesterday you spent: {yesterday_val:,.0f} {unit}")
-            lines.append(f"📅 Monthly total spending: {month_val:,.0f} {unit}")
+        from smart_tracker import get_user_trackers, get_yesterday_total, get_month_total
+        trackers = get_user_trackers(user_id)
+        if trackers:
+            recap_lines = []
+            for tracker in trackers:
+                yesterday_val = get_yesterday_total(user_id, tracker["id"])
+                month_val = get_month_total(user_id, tracker["id"])
+                unit = tracker.get("unit", "")
+                emoji = tracker.get("emoji", "📊")
+                name = tracker["name"]
+                if yesterday_val > 0 or month_val > 0:
+                    recap_lines.append(f"• {emoji} **{name.capitalize()}**: yesterday {yesterday_val:,.1f} {unit} | monthly total {month_val:,.1f} {unit}")
+            if recap_lines:
+                lines.append("\n📊 **Yesterday's Tracker Recap:**")
+                lines.extend(recap_lines)
     except Exception as e:
-        logger.warning("Failed to append spending to morning briefing: %s", e)
+        logger.warning("Failed to append trackers to morning briefing: %s", e)
 
     await _send_safe(bot, user_id, "\n".join(lines))
 
