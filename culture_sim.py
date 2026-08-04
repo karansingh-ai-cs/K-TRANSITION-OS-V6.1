@@ -1,5 +1,5 @@
 # culture_sim.py — K-Transition OS v5.0
-# KILLER FEATURE #1: Culture Shock Simulator
+# Culture Shock Simulator
 # Interactive AI-driven choose-your-adventure scenarios
 # User faces REAL Korean situations, makes choices, gets scored
 # Wrong choices = consequences (like in real life)

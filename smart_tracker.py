@@ -94,3 +94,78 @@ def format_tracker_stats(tracker, stats, recent):
             note = f" — {e['note']}" if e.get('note') else ""
             msg += f"  {e['logged_at'][:10]}: {e['value']:,.1f} {u}{note}\n"
     return msg
+
+def get_today_total(user_id, tracker_id):
+    import datetime
+    today_start = datetime.datetime.now(datetime.UTC).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    with _get_conn() as conn:
+        row = conn.execute("SELECT SUM(value) FROM tracker_entries WHERE user_id=? AND tracker_id=? AND logged_at >= ?", (user_id, tracker_id, today_start)).fetchone()
+    return row[0] if row and row[0] is not None else 0.0
+
+def get_yesterday_total(user_id, tracker_id):
+    import datetime
+    now_utc = datetime.datetime.now(datetime.UTC)
+    yesterday_start = (now_utc - datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    with _get_conn() as conn:
+        row = conn.execute("SELECT SUM(value) FROM tracker_entries WHERE user_id=? AND tracker_id=? AND logged_at >= ? AND logged_at < ?", (user_id, tracker_id, yesterday_start, today_start)).fetchone()
+    return row[0] if row and row[0] is not None else 0.0
+
+def get_week_total(user_id, tracker_id):
+    import datetime
+    now_utc = datetime.datetime.now(datetime.UTC)
+    weekday = now_utc.weekday()
+    week_start = (now_utc - datetime.timedelta(days=weekday)).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    with _get_conn() as conn:
+        row = conn.execute("SELECT SUM(value) FROM tracker_entries WHERE user_id=? AND tracker_id=? AND logged_at >= ?", (user_id, tracker_id, week_start)).fetchone()
+    return row[0] if row and row[0] is not None else 0.0
+
+def get_month_total(user_id, tracker_id):
+    import datetime
+    month_start = datetime.datetime.now(datetime.UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+    with _get_conn() as conn:
+        row = conn.execute("SELECT SUM(value) FROM tracker_entries WHERE user_id=? AND tracker_id=? AND logged_at >= ?", (user_id, tracker_id, month_start)).fetchone()
+    return row[0] if row and row[0] is not None else 0.0
+
+def format_spending_summary(user_id, period):
+    tracker = get_tracker_by_name(user_id, "spending")
+    if not tracker:
+        tracker = get_tracker_by_name(user_id, "expense")
+    if not tracker:
+        all_t = get_user_trackers(user_id)
+        for t in all_t:
+            if "spend" in t['name'].lower() or "expense" in t['name'].lower():
+                tracker = t
+                break
+
+    if not tracker:
+        return "💰 No spending or expense tracker has been created yet. You can log expenses automatically with natural sentences, like: 'I spent 5000 won on coffee'."
+
+    tracker_id = tracker['id']
+    emoji = tracker.get('emoji', '💸')
+    unit = tracker.get('unit', '₩')
+    name = tracker['name']
+
+    period = period.lower().strip()
+    if period == "today":
+        val = get_today_total(user_id, tracker_id)
+        return f"{emoji} Today's total {name}: {val:,.0f} {unit}"
+    elif period == "yesterday":
+        val = get_yesterday_total(user_id, tracker_id)
+        return f"{emoji} Yesterday's total {name}: {val:,.0f} {unit}"
+    elif period == "week":
+        val = get_week_total(user_id, tracker_id)
+        return f"{emoji} This week's total {name}: {val:,.0f} {unit}"
+    elif period == "month":
+        val = get_month_total(user_id, tracker_id)
+        return f"{emoji} This month's total {name}: {val:,.0f} {unit}"
+    else:
+        today_val = get_today_total(user_id, tracker_id)
+        yest_val = get_yesterday_total(user_id, tracker_id)
+        week_val = get_week_total(user_id, tracker_id)
+        month_val = get_month_total(user_id, tracker_id)
+        return (f"{emoji} {name.capitalize()} Summary:\n"
+                f"• Today: {today_val:,.0f} {unit}\n"
+                f"• Yesterday: {yest_val:,.0f} {unit}\n"
+                f"• This Week: {week_val:,.0f} {unit}\n"
+                f"• This Month: {month_val:,.0f} {unit}")

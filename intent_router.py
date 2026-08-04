@@ -1,5 +1,5 @@
 # intent_router.py — K-Transition OS v6.0
-# LLM-powered Intent Classification + Entity Extraction
+# LLM Intent Classification + Entity Extraction
 # Single Groq call replaces all keyword matching
 # Extracts structured data for zero-command execution
 
@@ -34,6 +34,10 @@ INTENTS (pick ONE):
 - "visa" — user is explicitly asking to check their visa deadline, ARC tracker, or immigration radar. Entities: {{}}
 - "challenge" — daily survival challenge. Entities: {{}}
 - "track" — budget/habit tracker. Entities: {{"tracker": "...", "value": "..."}}
+- "log_expense" — user states they spent money, bought something, or paid for an item/service. Entities: {{"amount": "5000", "category": "food|transport|shopping|study|health|fun|other", "description": "short desc"}}
+- "add_task_natural" — user wants to remember to do something, add a task, or sets a checklist item. Entities: {{"task": "task text", "when": "tomorrow|next week|etc"}}
+- "complete_task_natural" — user finished a task, completed a checklist item, or is done with a chore. Entities: {{"task_keyword": "keyword"}}
+- "spending_query" — user asks about their spending history, budget, or how much they spent. Entities: {{"period": "today|yesterday|week|month|all"}}
 - "reminder" — user wants to set a reminder or alarm. Entities: {{"task": "...", "time": "..."}}
 - "apps" — user is explicitly asking for the list of recommended apps to download. Entities: {{"category": "..."}}
 - "hack" — Korea life hacks. Entities: {{"topic": "..."}}
@@ -134,6 +138,64 @@ def _fallback(text: str) -> dict:
 
     if any(w in t for w in ["emergency", "police", "ambulance", "help me", "danger"]):
         return {"intent": "emergency", "entities": {}, "korean_query": None, "confidence": 0.8}
+
+    # log_expense intent (spent 12000, taxi was 8500, cost 6200)
+    if any(w in t for w in ["spent", "bought", "cost", "paid", "won", "price"]):
+        import re
+        t_clean = t.replace(",", "")
+        amount_match = re.search(r"\d+", t_clean)
+        amount = float(amount_match.group(0)) if amount_match else 0.0
+
+        category = "other"
+        for kw, cat in [("food", "food"), ("lunch", "food"), ("dinner", "food"), ("ramen", "food"),
+                        ("taxi", "transport"), ("subway", "transport"), ("bus", "transport"),
+                        ("shirt", "shopping"), ("clothes", "shopping"), ("daiso", "shopping")]:
+            if kw in t:
+                category = cat
+                break
+        return {
+            "intent": "log_expense",
+            "entities": {"amount": amount, "category": category, "description": t},
+            "korean_query": None,
+            "confidence": 0.7
+        }
+
+    # add_task_natural (I need to, don't forget, remind me)
+    if any(w in t for w in ["i need to", "don't forget", "remind me", "need to"]):
+        task = t
+        for prefix in ["i need to", "don't forget to", "don't forget", "remind me to", "remind me"]:
+            if t.startswith(prefix):
+                task = t.replace(prefix, "").strip()
+                break
+        return {
+            "intent": "add_task_natural",
+            "entities": {"task": task, "when": "tomorrow" if "tomorrow" in t else ""},
+            "korean_query": None,
+            "confidence": 0.7
+        }
+
+    # complete_task_natural (done with, finished, got the)
+    if any(w in t for w in ["done with", "finished", "got the", "completed"]):
+        task_keyword = t
+        for prefix in ["done with", "finished", "got the", "completed"]:
+            if t.startswith(prefix):
+                task_keyword = t.replace(prefix, "").strip()
+                break
+        return {
+            "intent": "complete_task_natural",
+            "entities": {"task_keyword": task_keyword},
+            "korean_query": None,
+            "confidence": 0.7
+        }
+
+    # spending_query (how much did I spend, am I spending)
+    if any(w in t for w in ["how much did i spend", "what is my budget", "am i spending", "spending summary", "my budget"]):
+        return {
+            "intent": "spending_query",
+            "entities": {"period": "week"},
+            "korean_query": None,
+            "confidence": 0.7
+        }
 
     # Cook intent
     if any(w in t for w in ["cook", "recipe", "kitchen", "egg", "cheese", "noodle", "eat", "food", "make"]):

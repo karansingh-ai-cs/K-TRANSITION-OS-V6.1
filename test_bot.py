@@ -248,13 +248,29 @@ def test_korean_search():
 
 @test("Tracker: Advanced notes and deletion")
 def test_tracker_advanced():
-    from smart_tracker import create_tracker, log_entry, get_tracker_stats, delete_tracker, get_user_trackers
+    from smart_tracker import (
+        create_tracker, log_entry, get_tracker_stats, delete_tracker, get_user_trackers,
+        get_today_total, get_yesterday_total, get_week_total, get_month_total, format_spending_summary
+    )
     user_id = 11223344
-    tid = create_tracker(user_id, "test_exp", "💸", "₩")
+    tid = create_tracker(user_id, "spending", "💸", "₩")
     log_entry(user_id, tid, 5000, "bought snack")
+
     stats = get_tracker_stats(tid)
     assert stats["count"] == 1
     assert stats["total"] == 5000
+
+    # Test new date-range helper total functions
+    assert get_today_total(user_id, tid) == 5000.0
+    assert get_week_total(user_id, tid) == 5000.0
+    assert get_month_total(user_id, tid) == 5000.0
+    assert get_yesterday_total(user_id, tid) == 0.0
+
+    # Test summary formatting
+    summary = format_spending_summary(user_id, "today")
+    assert "Today's total" in summary
+    assert "5,000" in summary
+
     delete_tracker(user_id, tid)
     active = get_user_trackers(user_id)
     assert not any(t["id"] == tid for t in active)
@@ -341,11 +357,16 @@ async def test_dormchef():
 
 @test("Intent Router: Basic routing")
 async def test_intent():
-    from intent_router import route_intent
+    from intent_router import route_intent, _fallback
     result = await route_intent("find nearest pharmacy", {"city": "Seoul"})
     assert result["intent"] in ("map", "general_question"), f"Got: {result['intent']}"
     result2 = await route_intent("I have eggs and cheese what can I cook", {})
     assert result2["intent"] == "cook", f"Got: {result2['intent']}"
+
+    # Verify fallback comma parsing
+    fb = _fallback("I spent 12,000 won on lunch")
+    assert fb["intent"] == "log_expense"
+    assert fb["entities"]["amount"] == 12000.0
 
 
 # ── Run All Tests ──────────────────────────────────────────────
