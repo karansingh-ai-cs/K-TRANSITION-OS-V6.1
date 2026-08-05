@@ -1,5 +1,5 @@
 # culture_sim.py — K-Transition OS v5.0
-# KILLER FEATURE #1: Culture Shock Simulator
+# Culture Shock Simulator
 # Interactive AI-driven choose-your-adventure scenarios
 # User faces REAL Korean situations, makes choices, gets scored
 # Wrong choices = consequences (like in real life)
@@ -238,6 +238,7 @@ async def evaluate_ai_choice(scenario_text, choice_letter, user_info=None):
     """Evaluate user's choice for AI-generated scenario using LLM."""
     from ai_brain import call_groq
     import re
+    import asyncio
 
     system = SIM_JUDGE_PROMPT.format(
         scenario=scenario_text,

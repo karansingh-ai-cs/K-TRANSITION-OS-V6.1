@@ -325,8 +325,8 @@ def get_todays_predictions(user_info: dict) -> list[dict]:
     triggered  = []
 
     for event in TIMELINE_EVENTS:
-        # Check day window
-        if not (event["day_start"] <= days <= event["day_end"]):
+        # Check if today is the exact day_start day for this event
+        if days != event["day_start"]:
             continue
 
         # Check conditions

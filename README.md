@@ -60,6 +60,13 @@ K-Transition OS is a production-grade Telegram bot + voice negotiation MiniApp t
 | 📊 **Smart Tracker** | `smart_tracker.py` | Custom budget/habit trackers with auto-emoji |
 | 🎯 **Daily Challenge** | `daily_challenge.py` | Real-world micro-tasks with XP |
 
+#### 🧠 Zero-Command Natural Intelligence Budget & Task Logger
+No slash commands or formatted inputs required. The AI context router and state manager seamlessly extract and log your expenses, habit entries, and survival checklist tasks:
+- **Natural Spending Logging:** Simply say *"I spent 5000 won on coffee"* or *"paid 12000 for dinner"*. The system automatically extracts the amount, categorizes the purchase, and logs it to your active `spending` tracker while instantly displaying your daily and weekly totals.
+- **Conversational Task Manager:** Simply type *"I need to pick up my ARC"* or *"remind me to register for classes"*. The system automatically adds it to your checklist and sets a reminder. Mark tasks as finished via *"done with ARC"* or *"finished class registration"*.
+- **Natural Queries:** Ask *"how much did I spend today?"* or *"what is my budget?"* to get structured weekly/monthly financial reports.
+- **Morning Briefings Integration:** Wake up to daily budget updates! Your morning briefing automatically appends your total expenditure from yesterday and the current month.
+
 ### 🌐 Information
 | Feature | Module | Description |
 |---------|--------|-------------|
@@ -250,7 +257,6 @@ Runs 25 tests covering:
 - [ ] **Frontend CDN** — Host Negotiator UI on Vercel/GitHub Pages
 - [ ] **Emergency fallback** — Hugging Face Space as circuit breaker
 - [ ] **Multi-language** — Arabic, Vietnamese, Mongolian support
-- [ ] **TOPIK prep module** — AI-powered Korean proficiency test practice
 - [ ] **Alumni network** — Connect current + graduated students
 
 ---

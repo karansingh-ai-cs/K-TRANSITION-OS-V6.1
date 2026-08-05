@@ -146,6 +146,28 @@
                 "Popular student jobs: cafe, restaurant, convenience store, tutoring, translation",
                 "Min wage 2025: ~9,860 won/hour (check current rate at labour.go.kr)"
             ]
+        },
+        {
+            "id": "G012",
+            "keywords": ["sim card agreement", "sim contract", "termination fee", "위약금", "locked contract", "phone trap", "cancel plan", "early exit"],
+            "risk": "HIGH",
+            "problem": "Many students get trapped in 2-year phone contracts. Cancelling early results in high early termination fees (위약금 / wiyakgeum) of up to hundreds of thousands of won.",
+            "action": [
+                "Legitimate phone stores must clearly state the contract term (약정 기간) and 위약금 structure before you sign.",
+                "Avoid 'free' high-end phones from sketchy dealers; they package them with expensive plans you cannot cancel.",
+                "If you are staying less than 2 years, always use 알뜰폰 (MVNO prepaid/no-contract budget SIMs)."
+            ]
+        },
+        {
+            "id": "G013",
+            "keywords": ["lend passport", "lend arc", "borrow id", "lend id", "대포통장", "daepo", "lend bank account", "my card used"],
+            "risk": "CRITICAL",
+            "problem": "CRITICAL RISK: Lending your passport, ARC, or bank account details to anyone is highly illegal in Korea. Your details will be used for money laundering (대포통장) or registering illegal phones (대포폰), leading to immediate deportation and criminal charges.",
+            "action": [
+                "NEVER give your physical ARC/passport or photos of them to anyone except official authorities (school, bank, immigration).",
+                "If someone offers you money to 'just borrow your bank card' or 'open a phone line' for them, refuse immediately.",
+                "Lending accounts = permanent criminal record in Korea. Report immediately to 112."
+            ]
         }
     ]
 }

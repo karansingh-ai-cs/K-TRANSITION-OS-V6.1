@@ -98,7 +98,7 @@ from community_bot import (
 )
 from notifier import start_scheduler
 
-# ── V5: New Killer Features ────────────────────────────────────────────────────
+# ── V5: Core Modules ────────────────────────────────────────────────────
 from dormchef import get_chef_recipe, get_quick_recipe, get_equipment_guide, get_recipe_categories
 from daily_challenge import get_todays_challenge, format_challenge, get_challenge_stats_text
 from korean_brain import start_practice, continue_practice, get_scenario_list, SCENARIOS as KB_SCENARIOS
@@ -322,7 +322,7 @@ async def _handle_button_text(update, context, user_id, user_info, text):
         await safe_send(update, format_level_status(user_id), reply_markup=kb)
     elif action == "help_show":
         msg = ("⚙️ All Features\n━━━━━━━━━━━━━━\n\n"
-               "🔥 KILLER\n/simulate — Culture Shock Simulator\n/interpret [text] — Cultural Interpreter\n"
+               "🎮 INTERACTIVE\n/simulate — Culture Shock Simulator\n/interpret [text] — Cultural Interpreter\n"
                "/buddy [msg] — Chat with Minsu\n/cook [ingredients] — DormChef\n\n"
                "📅 DAILY\n/challenge — Today's challenge\n/visa — Visa tracker\n/news — Korea news\n\n"
                "🇰🇷 KOREAN\n/practice — AI roleplay\n/quiz — Korean quiz\n/word — Word of the day\n\n"
@@ -416,6 +416,49 @@ async def _handle_active_state(update, context, user_id, user_info, text, state)
     elif state == State.BUDDY_ACTIVE:
         ctx = get_context(user_id)
         history = ctx.get("history", [])
+
+        # Zero-Command: Silently extract trackers/tasks/reminders within Buddy chat
+        side_confirm = ""
+        try:
+            intent_result = await route_intent(text, user_info, current_state="IDLE")
+            if intent_result["intent"] == "log_expense":
+                entities = intent_result.get("entities", {})
+                try:
+                    amount = float(entities.get("amount", 0))
+                except (ValueError, TypeError):
+                    amount = 0.0
+                category = entities.get("category", "other").lower().strip()
+                description = entities.get("description", "").strip() or "expense"
+                if amount > 0:
+                    from smart_tracker import get_tracker_by_name, create_tracker, log_entry
+                    tracker = get_tracker_by_name(user_id, "spending")
+                    if not tracker:
+                        tid = create_tracker(user_id, "spending", "💸", "₩")
+                        tracker = {"id": tid, "name": "spending", "emoji": "💸", "unit": "₩"}
+                    log_entry(user_id, tracker["id"], amount, note=f"{category}: {description}")
+                    side_confirm = f"\n*(Note: Silently logged ₩{amount:,.0f} to your spending tracker! 💸)*"
+
+            elif intent_result["intent"] == "add_task_natural":
+                entities = intent_result.get("entities", {})
+                task_title = entities.get("task", "").strip()
+                if task_title:
+                    from memory import add_task
+                    add_task(user_id, task_title)
+                    side_confirm = f"\n*(Note: Added task '{task_title}' to your checklist! ✅)*"
+
+                    # Parse minutes if user requested a quick timer/reminder
+                    import re
+                    min_match = re.search(r"(\d+)\s*(?:min|minute)", text.lower())
+                    if min_match:
+                        minutes = int(min_match.group(1))
+                        from datetime import datetime, UTC, timedelta
+                        from notifier import add_custom_reminder
+                        run_date = datetime.now(UTC) + timedelta(minutes=minutes)
+                        add_custom_reminder(user_id, task_title, run_date)
+                        side_confirm += f"\n*(Note: Scheduled alert for '{task_title}' in {minutes} minutes! ⏰)*"
+        except Exception as e:
+            logger.warning("Silent buddy tracker/task extraction failed: %s", e)
+
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
         await asyncio.sleep(random.uniform(0.5, 1.8))
         response = await chat_with_buddy(text, user_info, history)
@@ -424,8 +467,13 @@ async def _handle_active_state(update, context, user_id, user_info, text, state)
         history.append({"role": "user", "content": text})
         history.append({"role": "assistant", "content": response})
         if len(history) > 20:
-            ctx["history"] = history[-16:]
-        await safe_send(update, f"🧑 민수:\n{response}", reply_markup=room_keyboard())
+            history = history[-16:]
+        set_state(user_id, State.BUDDY_ACTIVE, {"history": history})
+
+        reply_msg = f"🧑 민수:\n{response}"
+        if side_confirm:
+            reply_msg += f"\n\n{side_confirm}"
+        await safe_send(update, reply_msg, reply_markup=room_keyboard())
 
     elif state == State.INTERPRET_WAITING_TEXT:
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
@@ -465,7 +513,6 @@ _SOFT_BUTTONS = {
     "rate":       ("💱",  "Check Exchange Rates",   "soft_rate"),
     "culture":    ("🎎",  "Cultural Tips",          "soft_culture"),
     "scam":       ("🔍",  "Run Scam Check",         "soft_scam"),
-    "track":      ("📊",  "Open Tracker",           "soft_track"),
     "reminder":   ("⏰",  "Set Reminder",           "soft_reminder"),
 }
 
@@ -481,6 +528,135 @@ async def _execute_intent(update, context, user_id, user_info, intent_result, or
     # ── Direct execution intents (no soft-routing needed) ─────────────────
     if intent in ("sos", "emergency"):
         await safe_send(update, format_sos_general(), reply_markup=kb)
+        return
+
+    if intent == "log_expense":
+        from smart_tracker import get_today_total, get_week_total
+        # Parse entities
+        try:
+            amount = float(entities.get("amount", 0))
+        except (ValueError, TypeError):
+            amount = 0.0
+        category = entities.get("category", "other").lower().strip()
+        description = entities.get("description", "").strip() or "expense"
+
+        if amount > 0:
+            # Auto-create or find "spending" tracker
+            tracker = get_tracker_by_name(user_id, "spending")
+            if not tracker:
+                tid = create_tracker(user_id, "spending", "💸", "₩")
+                tracker = {"id": tid, "name": "spending", "emoji": "💸", "unit": "₩"}
+
+            # Log the entry
+            log_entry(user_id, tracker["id"], amount, note=f"{category}: {description}")
+            add_xp(user_id, XP_REWARDS["tracker_log"], "tracker_log")
+
+            # Fetch today and week totals
+            today_total = get_today_total(user_id, tracker["id"])
+            week_total = get_week_total(user_id, tracker["id"])
+
+            cat_emoji = {
+                "food": "🍔", "transport": "🚇", "shopping": "🛍️", "study": "📚",
+                "health": "💊", "fun": "🎮", "other": "💸"
+            }.get(category, "💸")
+
+            await safe_send(update,
+                f"💸 **Logged Spending:** ₩{amount:,.0f} — {cat_emoji} {category.title()}\n\n"
+                f"📊 **Today's Total:** ₩{today_total:,.0f}\n"
+                f"📈 **This Week's Total:** ₩{week_total:,.0f}",
+                reply_markup=kb
+            )
+        else:
+            await safe_send(update, "Please specify an amount to log (e.g., 'spent 12000 on lunch').", reply_markup=kb)
+        return
+
+    if intent == "track":
+        from smart_tracker import (
+            get_user_trackers, get_tracker_by_name, get_tracker_stats, get_tracker_entries,
+            create_tracker, log_entry, guess_emoji, guess_unit, format_tracker_list, format_tracker_stats
+        )
+        # Parse entities
+        name = entities.get("tracker", "").strip().lower()
+        val_str = str(entities.get("value", "")).strip()
+
+        # If no tracker name is provided, let's just list user's trackers
+        if not name:
+            trackers = get_user_trackers(user_id)
+            await safe_send(update, format_tracker_list(trackers), reply_markup=kb)
+            return
+
+        # If tracker name is provided but no value, check if they want stats or delete, or just show tracker stats
+        if not val_str or val_str == "None":
+            tracker = get_tracker_by_name(user_id, name)
+            if not tracker:
+                # If they say "manage track" or "manage tracker", show list
+                if "manage" in name or "tracker" in name:
+                    trackers = get_user_trackers(user_id)
+                    await safe_send(update, format_tracker_list(trackers), reply_markup=kb)
+                else:
+                    await safe_send(update, f"Tracker '{name}' not found. Say 'track {name} [value]' to create and log to it!", reply_markup=kb)
+                return
+            stats = get_tracker_stats(tracker["id"])
+            recent = get_tracker_entries(tracker["id"], 5)
+            await safe_send(update, format_tracker_stats(tracker, stats, recent), reply_markup=kb)
+            return
+
+        # Clean and log the value
+        try:
+            value = float(val_str.replace(",", "").replace("₩", "").replace("won", "").replace("krw", ""))
+        except ValueError:
+            await safe_send(update, f"Please specify a numeric value to log (e.g., 'track {name} 5').", reply_markup=kb)
+            return
+
+        tracker = get_tracker_by_name(user_id, name)
+        if not tracker:
+            # Auto-create
+            emoji = guess_emoji(name)
+            unit = guess_unit(name)
+            tid = create_tracker(user_id, name, emoji, unit)
+            tracker = {"id": tid, "name": name, "emoji": emoji, "unit": unit}
+
+        log_entry(user_id, tracker["id"], value, note="")
+        add_xp(user_id, XP_REWARDS["tracker_log"], "tracker_log")
+        u = tracker.get("unit", "")
+        await safe_send(update, f"{tracker.get('emoji', '📊')} **Logged:** {value:,.1f} {u} to **{tracker['name']}**!", reply_markup=kb)
+        return
+
+    if intent == "add_task_natural":
+        task_title = entities.get("task", "").strip()
+        when = entities.get("when", "").strip()
+        if task_title:
+            tid = add_task(user_id, task_title)
+            msg = f"✅ **Added Task:** {task_title}"
+            if when:
+                msg += f"\n⏰ **Reminder Set:** {when}"
+            await safe_send(update, msg, reply_markup=kb)
+        else:
+            await safe_send(update, "I couldn't identify the task. Try saying 'I need to [task]'", reply_markup=kb)
+        return
+
+    if intent == "complete_task_natural":
+        keyword = entities.get("task_keyword", "").lower().strip()
+        if not keyword:
+            await safe_send(update, "Which task did you finish? (e.g. 'done with ARC')", reply_markup=kb)
+            return
+
+        tasks = get_tasks(user_id)
+        # Fuzzy match: find first incomplete task containing the keyword
+        matched = next((t for t in tasks if keyword in t["title"].lower() and not t["done"]), None)
+        if matched:
+            complete_task(user_id, matched["id"])
+            add_xp(user_id, 10, "task_complete")
+            await safe_send(update, f"✅ **Completed:** {matched['title']} 🎉 (+10 XP)", reply_markup=kb)
+        else:
+            await safe_send(update, f"Couldn't find any pending task matching '{keyword}'. /task list to check.", reply_markup=kb)
+        return
+
+    if intent == "spending_query":
+        from smart_tracker import format_spending_summary
+        period = entities.get("period", "week").lower().strip()
+        summary = format_spending_summary(user_id, period)
+        await safe_send(update, summary, reply_markup=kb)
         return
 
     if intent == "greeting":
@@ -763,11 +939,11 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = (
         "K-Transition OS v5 — Commands\n"
         "══════════════════════════════\n\n"
-        "🔥 KILLER FEATURES\n"
+        "⚡ INTERACTIVE MODULES\n"
         "/simulate — Culture Shock Simulator (interactive!)\n"
-        "/interpret [text] — AI Cultural Interpreter\n"
-        "/buddy [message] — Chat with your AI friend Minsu\n"
-        "/cook [ingredients] — DormChef AI recipes\n\n"
+        "/interpret [text] — Cultural Interpreter\n"
+        "/buddy [message] — Chat with your friend Minsu\n"
+        "/cook [ingredients] — DormChef recipes\n\n"
         "📅 DAILY ESSENTIALS\n"
         "/challenge — Today's survival challenge\n"
         "/visa — Visa & deadline tracker\n"
@@ -932,7 +1108,7 @@ async def cmd_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """AI-powered adaptive quiz. Falls back to static pool if Groq unavailable."""
+    """Adaptive quiz. Falls back to static pool if Groq unavailable."""
     user_id  = update.effective_user.id
     progress = get_progress(user_id)
     level    = progress.get("quiz_level", 1)
@@ -1737,7 +1913,7 @@ async def handle_error(update: object, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ════════════════════════════════════════════════════════════
-# V5 COMMAND HANDLERS — Killer Features
+# V5 COMMAND HANDLERS — Interactive Modules
 # ════════════════════════════════════════════════════════════
 
 async def cmd_cook(update: Update, context: ContextTypes.DEFAULT_TYPE):
