@@ -61,10 +61,17 @@ async def morning_briefing(bot: Bot, user_id: int):
         lines.append(f"\n🇰🇷 Today's word: {word.get('korean','')} — {word.get('meaning','')}")
         lines.append("(/word for full lesson)")
 
-    # Pending tasks
-    if tasks:
-        count = len(tasks)
-        lines.append(f"\n📋 You have {count} pending task{'s' if count>1 else ''}. /task list to see them.")
+    # Pending tasks & suggestions
+    try:
+        from life_manager import generate_morning_agenda
+        agenda = generate_morning_agenda(user_id)
+        if agenda:
+            lines.extend(agenda)
+    except Exception as e:
+        logger.warning("Failed to generate morning agenda: %s", e)
+        if tasks:
+            count = len(tasks)
+            lines.append(f"\n📋 You have {count} pending task{'s' if count>1 else ''}. /task list to see them.")
 
     # Proactive prediction
     if preds:

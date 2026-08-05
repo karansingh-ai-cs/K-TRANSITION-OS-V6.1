@@ -369,6 +369,27 @@ async def test_intent():
     assert fb["entities"]["amount"] == 12000.0
 
 
+@test("Life Manager: Dashboard and suggestions")
+def test_life_manager():
+    from life_manager import generate_morning_agenda, build_life_dashboard_card, conduct_evening_review
+    from memory import get_or_create_user
+    user_id = 99887766
+    get_or_create_user(user_id, "test_life", "test_first")
+
+    # Verify morning agenda suggestions
+    agenda = generate_morning_agenda(user_id)
+    assert len(agenda) > 0
+    assert any("checklist" in x.lower() or "empty" in x.lower() for x in agenda)
+
+    # Verify evening review
+    review = conduct_evening_review(user_id)
+    assert "Evening Life Review" in review
+
+    # Verify dashboard card
+    dash = build_life_dashboard_card(user_id)
+    assert "Life Manager Dashboard" in dash
+
+
 # ── Run All Tests ──────────────────────────────────────────────
 
 async def main():
@@ -402,6 +423,7 @@ async def main():
         test_sos,
         test_dormchef,
         test_intent,
+        test_life_manager,
     ]
 
     print("Running tests...\n")

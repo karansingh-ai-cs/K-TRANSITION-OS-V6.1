@@ -326,7 +326,7 @@ async def _handle_button_text(update, context, user_id, user_info, text):
                "/buddy [msg] — Chat with Minsu\n/cook [ingredients] — DormChef\n\n"
                "📅 DAILY\n/challenge — Today's challenge\n/visa — Visa tracker\n/news — Korea news\n\n"
                "🇰🇷 KOREAN\n/practice — AI roleplay\n/quiz — Korean quiz\n/word — Word of the day\n\n"
-               "📊 TRACKING\n/track — Custom trackers\n/task — Task manager\n\n"
+               "📊 TRACKING\n/life — Life Manager Dashboard\n/track — Custom trackers\n/task — Task manager\n\n"
                "📱 INFO\n/apps — Must-have apps\n/hack — Life hacks\n/map — Find places\n"
                "/rate — Exchange rates\n/culture — Culture tips\n\n"
                "⚙️ SETUP\n/setup — Profile wizard\n/profile — View profile\n\n"
@@ -452,10 +452,10 @@ async def _handle_active_state(update, context, user_id, user_info, text, state)
                     if min_match:
                         minutes = int(min_match.group(1))
                         from datetime import datetime, UTC, timedelta
-                        from notifier import add_custom_reminder
+                        from life_manager import schedule_staggered_reminder
                         run_date = datetime.now(UTC) + timedelta(minutes=minutes)
-                        add_custom_reminder(user_id, task_title, run_date)
-                        side_confirm += f"\n*(Note: Scheduled alert for '{task_title}' in {minutes} minutes! ⏰)*"
+                        schedule_staggered_reminder(user_id, task_title, run_date)
+                        side_confirm += f"\n*(Note: Scheduled staggered alerts for '{task_title}' starting in {minutes} minutes! ⏰)*"
         except Exception as e:
             logger.warning("Silent buddy tracker/task extraction failed: %s", e)
 
@@ -955,6 +955,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/word — Word of the day\n"
         "/phrase [topic] — Survival phrases\n\n"
         "📊 TRACKING & PLANNING\n"
+        "/life — Life Manager Dashboard & Audit\n"
         "/track — Your custom trackers\n"
         "/schedule — First week plan\n"
         "/task — Personal task manager\n\n"
@@ -1859,12 +1860,12 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif module == "reminder":
             from datetime import timedelta
-            from notifier import add_custom_reminder
+            from life_manager import schedule_staggered_reminder
             now = datetime.now(UTC)
             task = last_user_msg or "reminder"
             run_date = now + timedelta(minutes=60)
-            add_custom_reminder(user_id, task, run_date)
-            await context.bot.send_message(chat_id=query.message.chat_id, text=f"⏰ Reminder set! I'll ping you about '{task}' in ~1 hour.", reply_markup=kb)
+            schedule_staggered_reminder(user_id, task, run_date)
+            await context.bot.send_message(chat_id=query.message.chat_id, text=f"⏰ Staggered reminders set! I'll ping you about '{task}' (including 15-minute and 1-hour pre-alerts).", reply_markup=kb)
 
         else:
             await context.bot.send_message(chat_id=query.message.chat_id, text="Feature coming soon!", reply_markup=kb)
@@ -2054,6 +2055,22 @@ async def cmd_track(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     trackers = get_user_trackers(user_id)
     await safe_send(update, format_tracker_list(trackers), reply_markup=nav_keyboard())
+
+
+async def cmd_life(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    get_or_create_user(user_id)
+    parts = update.message.text.strip().split(maxsplit=1)
+    sub = parts[1].strip().lower() if len(parts) > 1 else ""
+
+    from life_manager import build_life_dashboard_card, conduct_evening_review
+
+    if sub == "review" or sub == "audit" or sub == "evening":
+        review_msg = conduct_evening_review(user_id)
+        await safe_send(update, review_msg, reply_markup=nav_keyboard())
+    else:
+        dash_msg = build_life_dashboard_card(user_id)
+        await safe_send(update, dash_msg, reply_markup=nav_keyboard())
 
 
 async def cmd_buddy(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2544,7 +2561,7 @@ def main():
         ("community", cmd_community), ("setupgroup", cmd_setupgroup), ("settopic", cmd_settopic),
         # V5 commands
         ("cook", cmd_cook), ("challenge", cmd_challenge), ("practice", cmd_practice),
-        ("track", cmd_track), ("buddy", cmd_buddy), ("sos", cmd_sos),
+        ("track", cmd_track), ("life", cmd_life), ("buddy", cmd_buddy), ("sos", cmd_sos),
         ("visa", cmd_visa), ("simulate", cmd_simulate), ("interpret", cmd_interpret),
         ("apps", cmd_apps), ("hack", cmd_hack), ("level", cmd_level),
         ("speak", cmd_speak),
