@@ -115,16 +115,24 @@ Read the room. If the local sounds annoyed, rushed, or uninterested:
 - Shift to a softer approach or use CONSULT_USER
 Nunchi is more important than winning the negotiation.
 
+━━━━━ ANTI-HALLUCINATION & SAFETY SHIELD ━━━━━
+1. MEDICAL/NUMBERS: If the local mentions a number, dosage, time, price, or count, you MUST include the EXACT number in english_update. "세 번, 한 알" → "3 times/day, 1 pill each" NOT "take 3 pills". NEVER paraphrase or summarize numbers.
+2. DIETARY/ALLERGIES: If the user has dietary restrictions and the local's answer is ambiguous or mentions 육수/국물/사골 (broth/stock/bone), assume it is NOT safe. Report "⚠️ Broth may contain pork/fish" — NEVER say "confirmed safe" unless the local explicitly confirms 채식/할랄 가능.
+3. DEAL LOCK: You are physically incapable of accepting a price or making a purchase. NEVER say "살게요" "할게요" "결제할게요" "계약할게요" in korean_speech. If the seller agrees to a price, you MUST use action: "CONSULT_USER" so the student decides. You may ONLY negotiate — never commit.
+
 ━━━━━ STRICT JSON OUTPUT FORMAT ━━━━━
 Respond ONLY with this exact JSON. No markdown. No extra fields. No preamble:
 {{
   "korean_speech": "Korean Hangul ONLY. Empty string if action is CONSULT_USER.",
-  "english_update": "1-2 sentence English summary: what the local said + what student needs to know.",
+  "english_update": "1-2 sentence English summary: what the local said + what student needs to know. ALWAYS include exact numbers/prices/dosages.",
   "action": "SPEAK",
   "hitl_buttons": null,
   "mood": "friendly",
   "deal_chance": 75,
+  "confidence": 0.85,
   "next_move": "One short English tip for the student's next move.",
+  "confirmed_facts": {{}},
+  "entities": {{}},
   "phrases": [
     {{"kr": "얼마예요?", "rom": "eolma-eyo?", "en": "How much is it?"}},
     {{"kr": "깎아 주세요", "rom": "kkakka juseyo", "en": "Please give a discount"}},
@@ -138,8 +146,11 @@ FIELD RULES:
 - "action" → exactly "SPEAK" or "CONSULT_USER"
 - "mood" → exactly one of: "friendly" | "neutral" | "annoyed" | "busy" | "uncertain"
 - "deal_chance" → integer 0-100 (realistic estimate of success). Use null if not a deal/bargain context.
+- "confidence" → float 0.0-1.0 representing how confident you are in your Korean speech being correct and appropriate. If below 0.5, you MUST use action: "CONSULT_USER" instead of SPEAK.
 - "next_move" → 1 short sentence (English) on what student should do/expect next. Never empty.
 - "phrases" → exactly 5 items. Choose the most relevant phrases for THIS specific moment in the conversation.
+- "confirmed_facts" → dict of facts confirmed this turn. Example: {{"symptom": "headache since yesterday", "medicine_name": "타이레놀"}}. Use {{}} if nothing new confirmed.
+- "entities" → dict of named entities mentioned this turn. Example: {{"medicine": "차스트론 콜드", "product": "파란색 가방"}}. Use {{}} if none.
 """
 
 # ── Pre-battle Briefing Prompt ─────────────────────────────────────────────────
@@ -207,6 +218,8 @@ Real-life tactics:
 - If refused: acknowledge their price, ask for ANY small discount (even ₩500)
 - If refused twice: use CONSULT_USER — ask student to accept, walk away, or try a bundle deal
 - Never sound desperate. Stay warm and smile in your tone.
+DEAL LOCK: You may negotiate prices but NEVER say "살게요" or commit to buying. When a price is agreed, use CONSULT_USER with the final price so the student can approve.
+SCAM ALERT: If you hear "현금 영수증 안 돼" (no cash receipt) or suspicious pressure to pay immediately, flag it in english_update as ⚠️ SCAM WARNING.
 Final goal: close a deal both sides feel okay about.""",
 
     "directions": """TONE: Polite, slightly confused tourist. Use humble speech forms.
@@ -223,7 +236,8 @@ Real-life tactics:
 - Key phrases: 돼지고기 들어가나요?, 고기 빼주세요, 멸치 육수 쓰나요?
 - If unavailable, use CONSULT_USER for alternative
 - Confirm the final order before closing: 주문 확인해 주세요
-- When order is confirmed → CONSULT_USER asking if student wants to add anything""",
+- When order is confirmed → CONSULT_USER asking if student wants to add anything
+DIETARY SAFETY: If the student has dietary restrictions (halal, vegetarian, allergies) and the local mentions 육수 (broth), 국물 (soup stock), 사골 (bone), 젓갈 (fermented seafood), or 미림 (mirin/alcohol), assume it is NOT safe. Report in english_update: "⚠️ [ingredient] detected — may not be safe." NEVER say "confirmed safe" unless the local explicitly says 채식 가능 or 할랄 가능.""",
 
     "pharmacy": """TONE: Calm, clear, respectful. Medical context.
 Real-life tactics:
@@ -304,7 +318,7 @@ def save_session_data(user_id: str, goal: str, context_type: str, outcome: str, 
                     total_sessions = total_sessions + 1,
                     total_wins = total_wins + excluded.total_wins,
                     total_duration = total_duration + excluded.total_duration,
-                    avg_score = ((avg_score * total_sessions) + excluded.avg_score) / (total_sessions + 1)
+                    avg_score = ((avg_score * (total_sessions - 1)) + excluded.avg_score) / total_sessions
             """, (user_id, is_win, duration, score))
     except Exception as e:
         logger.error(f"Failed to save session data to DB: {e}")
@@ -408,13 +422,14 @@ def is_valid_transcription(text: str) -> bool:
 def sanitize_korean(text: str) -> str:
     """Strip any non-Korean script from speech output.
     Keeps: Hangul, spaces, punctuation, numbers (for prices like 2만원, 20%).
-    Removes: Hindi/Devanagari, Chinese, Arabic, Latin letters mixed into Korean words.
+    Also keeps: Basic Latin A-Za-z for brand names (CU편의점, Kakao Bank).
+    Removes: Hindi/Devanagari, Chinese, Arabic, etc.
     """
     if not text:
         return text
-    # Allow: Hangul blocks, spaces, punctuation, digits, currency/percent symbols
+    # Allow: Hangul blocks, spaces, punctuation, digits, currency/percent, Latin letters
     cleaned = re.sub(
-        r'[^\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F\s.,!?~…·。\-0-9₩%]',
+        r'[^\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F\s.,!?~…·。\-0-9₩%A-Za-z]',
         '',
         text
     )
@@ -439,10 +454,61 @@ def extract_pct_from_text(text: str) -> float | None:
 
 
 def extract_prices(text: str) -> list[str]:
+    # First, convert any Hangul number words to digits
+    converted = hangul_price_to_digits(text)
     # Matches formats like 22,000원, 2만원, ₩22000, 2만 5천원
     pattern = r'(₩\s*\d+(?:,\d{3})*|\d+(?:,\d{3})*\s*원|\d+\s*만\s*\d*\s*천?\s*원)'
-    matches = re.findall(pattern, text)
+    matches = re.findall(pattern, converted)
     return [m.strip() for m in matches]
+
+
+def hangul_price_to_digits(text: str) -> str:
+    """Convert Hangul number words to digit format.
+    '이만 오천원' → '25000원', '삼만원' → '30000원', '천오백원' → '1500원'
+    Handles compound Korean numbers used in real market speech.
+    """
+    HANGUL_DIGITS = {'일':1,'이':2,'삼':3,'사':4,'오':5,'육':6,'칠':7,'팔':8,'구':9}
+    HANGUL_UNITS  = {'십':10,'백':100,'천':1000,'만':10000}
+
+    # Pattern: optional digit-word + unit-word combinations, ending with 원
+    price_pattern = re.compile(
+        r'([일이삼사오육칠팔구십백천만\s]+)원'
+    )
+
+    def _parse_hangul_number(s: str) -> int:
+        """Parse a pure Hangul number string like '이만오천' into 25000."""
+        s = s.strip()
+        if not s:
+            return 0
+        total = 0
+        current = 0
+        man_part = 0  # accumulates the 만 multiplier
+
+        for ch in s:
+            if ch in HANGUL_DIGITS:
+                current = HANGUL_DIGITS[ch]
+            elif ch == '만':
+                man_part = (current if current else 1) * 10000
+                current = 0
+            elif ch == '천':
+                total += (current if current else 1) * 1000
+                current = 0
+            elif ch == '백':
+                total += (current if current else 1) * 100
+                current = 0
+            elif ch == '십':
+                total += (current if current else 1) * 10
+                current = 0
+            elif ch == ' ':
+                continue
+        total += current + man_part
+        return total
+
+    def _replace_match(m):
+        num = _parse_hangul_number(m.group(1))
+        return f'{num}원' if num > 0 else m.group(0)
+
+    return price_pattern.sub(_replace_match, text)
 
 # ── TTS: Orpheus (Groq) ────────────────────────────────────────────────────────
 
@@ -617,6 +683,27 @@ async def run_llm(session: AssistantSession, user_input: str) -> dict:
             else:
                 session.price_pcts.append(pct)
 
+        # ── E6 FIX: SCAM ALERT Pattern Matching ────────────────
+        if session.context_type in ["bargain", "landlord"]:
+            scam_patterns = [
+                ("보증금 못", "⚠️ SCAM ALERT: Landlord refusing to return deposit. This is illegal under the Housing Lease Protection Act. Do not agree."),
+                ("현금 영수증 안", "⚠️ SCAM ALERT: Refusing cash receipts (현금영수증) is illegal tax evasion."),
+                ("수수료 따로", "⚠️ SCAM ALERT: Hidden fees. Real estate brokerage fees are strictly capped by law."),
+                ("외국인이라서 더", "⚠️ SCAM ALERT: Charging foreigners more is discriminatory and illegal.")
+            ]
+            for pattern, alert_msg in scam_patterns:
+                if pattern in user_input:
+                    logger.warning(f"SCAM DETECTED: {pattern}")
+                    await session.send_json({
+                        "action": "status",
+                        "text": alert_msg
+                    })
+                    # Inject a system prompt note to ensure AI reacts appropriately
+                    session.memory.append({
+                        "role": "system",
+                        "content": f"[CRITICAL SYSTEM ALERT: The local just used a known scam phrase ({pattern}). Advise the student to be extremely cautious and do not agree to their terms.]"
+                    })
+
     system = session.build_system_prompt()
 
     raw = ""
@@ -656,6 +743,38 @@ async def run_llm(session: AssistantSession, user_input: str) -> dict:
                 parsed["korean_speech"] = sanitize_korean(original)
                 if parsed["korean_speech"] != original:
                     logger.warning(f"sanitize_korean removed foreign chars: {original!r} → {parsed['korean_speech']!r}")
+
+            # ── DEAL LOCK: Prevent AI from committing without student approval ──
+            commitment_phrases = ["살게요", "할게요", "결제할게요", "계약할게요", "사겠습니다", "구매할게요"]
+            korean_out = parsed.get("korean_speech", "")
+            if any(phrase in korean_out for phrase in commitment_phrases):
+                if parsed.get("action") != "CONSULT_USER":
+                    logger.warning(f"DEAL LOCK triggered: AI tried to commit with '{korean_out[:50]}'. Forcing CONSULT_USER.")
+                    parsed["action"] = "CONSULT_USER"
+                    parsed["korean_speech"] = ""  # Don't speak the commitment
+                    parsed["english_update"] = "⚠️ Ready to commit — need your approval: " + parsed.get("english_update", "")
+                    parsed["hitl_buttons"] = ["Accept the price", "Try lower", "Walk away"]
+
+            # ── E1 FIX: Enforce Confidence Score Gate ──────────────
+            confidence = parsed.get("confidence", 1.0)
+            if confidence < 0.5 and parsed.get("action") != "CONSULT_USER":
+                logger.warning(f"Confidence too low ({confidence}). Forcing CONSULT_USER.")
+                parsed["action"] = "CONSULT_USER"
+                parsed["korean_speech"] = ""
+                parsed["english_update"] = f"⚠️ AI is uncertain (confidence: {confidence}). Please review: " + parsed.get("english_update", "")
+                parsed["hitl_buttons"] = ["Proceed anyway", "Re-record", "Walk away"]
+
+            # ── Extract confirmed facts from LLM output ────────────
+            new_facts = parsed.get("confirmed_facts", {})
+            if isinstance(new_facts, dict) and new_facts:
+                session.confirmed_facts.update(new_facts)
+                logger.info(f"Confirmed facts updated: {new_facts}")
+
+            # ── Extract entity names from LLM output ──────────────
+            new_entities = parsed.get("entities", {})
+            if isinstance(new_entities, dict) and new_entities:
+                session.entity_names.update(new_entities)
+                logger.info(f"Entity names updated: {new_entities}")
 
             # ── Auto-advance negotiation state ─────────────────────
             action = parsed.get("action", "SPEAK")
@@ -863,9 +982,12 @@ async def run_turn(session: AssistantSession, user_input: str):
 
             if session.consult_depth > 2:
                 logger.warning("CONSULT_USER loop detected — forcing graceful close")
-                # ← BUG FIX: was resetting to 0 HERE, causing infinite loops
+                session.is_done = True
                 session.is_processing = False
-                await run_turn(session, "The student says to accept the current situation gracefully and wrap up the conversation politely.")
+                farewell = "네, 감사합니다. 안녕히 계세요."
+                await session.send_json({"action": "ai_speech", "text": farewell})
+                await stream_tts(session, farewell, KOREAN_TTS_VOICE)
+                await session.send_json({"action": "session_ended", "result": "auto_closed"})
                 return
 
             choice = await show_hitl_buttons(session, english_update, hitl_buttons)
@@ -1004,7 +1126,47 @@ async def negotiate_ws(websocket: WebSocket):
                                     "text": "🤫 Whisper saved — tap main mic to record local's response"
                                 })
                             else:
-                                asyncio.create_task(run_turn(session, text))
+                                # ── M4 FIX: Server-side confirm gate for short transcripts ──
+                                # For very short transcripts (≤4 words), the Whisper output is
+                                # often wrong. Ask the user to confirm BEFORE processing.
+                                word_count = len(text.strip().split())
+                                if word_count <= 4:
+                                    # Send confirm request to frontend and wait
+                                    session.hitl_event.clear()
+                                    session.hitl_choice = None
+                                    await session.send_json({
+                                        "action": "show_buttons",
+                                        "message": f'Did they say: "{text}" ?',
+                                        "buttons": ["✅ Yes, correct", "✏️ Edit manually", "❌ Re-record"],
+                                    })
+                                    await session.send_json({
+                                        "action": "transcription",
+                                        "text": text,
+                                        "speaker": "local",
+                                        "pending_confirm": True
+                                    })
+                                    try:
+                                        await asyncio.wait_for(session.hitl_event.wait(), timeout=60.0)
+                                    except asyncio.TimeoutError:
+                                        session.hitl_choice = "✅ Yes, correct"
+
+                                    choice = session.hitl_choice or "✅ Yes, correct"
+                                    if choice == "✅ Yes, correct":
+                                        asyncio.create_task(run_turn(session, text))
+                                    elif choice.startswith("✏️"):
+                                        # User will send corrected text via manual_input
+                                        await session.send_json({
+                                            "action": "status",
+                                            "text": "✏️ Type the correct text below"
+                                        })
+                                    else:
+                                        # Re-record — discard
+                                        await session.send_json({
+                                            "action": "status",
+                                            "text": "🎙️ Ready — tap mic to record again"
+                                        })
+                                else:
+                                    asyncio.create_task(run_turn(session, text))
                         else:
                             await session.send_json({
                                 "action": "status",
@@ -1173,6 +1335,10 @@ async def transcribe_audio(session: AssistantSession, audio_bytes: bytes) -> str
                     mean_logprob = sum(logprobs) / len(logprobs)
                     if mean_logprob < -1.0:
                         logger.warning(f"Whisper confidence too low ({mean_logprob:.2f}). Dropped.")
+                        await session.send_json({
+                            "action": "status",
+                            "text": "❓ Couldn't hear clearly — try holding the mic closer"
+                        })
                         return ""
                         
             return transcript.text.strip()

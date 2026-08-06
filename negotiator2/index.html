@@ -953,6 +953,15 @@
           oncontextmenu="event.preventDefault();"
           title="Hold to whisper">🤫</button>
       </div>
+
+      <!-- Emergency Phrases Strip -->
+      <div id="emergency-phrases" style="display:flex; gap:6px; width:100%; justify-content:center; flex-wrap:wrap;">
+        <button onclick="replayPhrase('잠시만요')" style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:5px 10px; font-size:11px; color:var(--yellow); cursor:pointer; font-family:inherit;" title="One moment please">⏸ 잠시만요</button>
+        <button onclick="replayPhrase('천천히 말씀해 주세요')" style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:5px 10px; font-size:11px; color:var(--green); cursor:pointer; font-family:inherit;" title="Please speak slowly">🐢 천천히</button>
+        <button onclick="replayPhrase('다시 한번요')" style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:5px 10px; font-size:11px; color:var(--accent); cursor:pointer; font-family:inherit;" title="One more time">🔁 다시</button>
+        <button onclick="showLastKorean()" style="background:var(--surface); border:1px solid var(--accent2); border-radius:6px; padding:5px 10px; font-size:11px; color:var(--accent2); cursor:pointer; font-family:inherit;" title="Show last Korean on full screen">📱 Show</button>
+      </div>
+
       <button class="finish-btn" onclick="endSessionNormally()">
         ✅ Finish &amp; Analyse Session
       </button>
@@ -1014,6 +1023,15 @@
   </div>
   <div class="history-list" id="history-list"></div>
   <button class="history-clear-btn" onclick="clearHistory()">🗑️ Clear All History</button>
+</div>
+
+<!-- ── Replay Modal (E2) ──────────────────────────────────── -->
+<div class="history-modal hidden" id="replay-modal">
+  <div class="history-header">
+    <h2>⏪ Session Replay</h2>
+    <button class="history-close" onclick="hideReplay()">✕ Close</button>
+  </div>
+  <div class="conv-log" id="replay-log" style="height: calc(100vh - 100px); padding-bottom: 20px;"></div>
 </div>
 
 
@@ -1162,33 +1180,8 @@ function sendDecision(choice) {
   setMicEnabled(true);
   appState = 'READY';
 
-  // ── Transcript confirm gate interception ──────────────────
-  if (confirmGateActive) {
-    confirmGateActive = false;
-    if (choice === '✅ Yes, correct') {
-      // Transcript was correct — show it in log, already sent to server
-      addMsg(pendingTranscript, 'local', '🎙️ Local said');
-      pendingTranscript = null;
-    } else if (choice === '✏️ Edit manually') {
-      // Prompt user to type the correct text
-      const corrected = prompt(`Edit the transcript:`, pendingTranscript || '');
-      if (corrected && corrected.trim()) {
-        addMsg(corrected.trim(), 'local', '🎙️ Local said (edited)');
-        // Send corrected text to server as a new turn
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ action: 'manual_input', text: corrected.trim() }));
-        }
-      }
-      pendingTranscript = null;
-    } else {
-      // ❌ Re-record — discard, let user try again
-      pendingTranscript = null;
-      setStatus('🎙️ Ready — tap mic to record again', '');
-    }
-    return;
-  }
-
-  // ── Normal HITL decision ──────────────────────────────────
+  // M4 FIX: All decisions (including transcript confirm/edit/re-record)
+  // are now handled server-side via the standard HITL path
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ action: 'user_decision', choice }));
   }
@@ -1386,6 +1379,34 @@ function replayPhrase(text) {
   }
 }
 
+// ── 📱 Show Last Korean (full-screen for vendor to read) ────
+function showLastKorean() {
+  // Find the last AI Korean message in the conversation log
+  const koreanMsgs = document.querySelectorAll('.msg-ai-korean .msg-label + div, .msg-ai-korean div:last-child');
+  let lastText = '';
+  // Walk backwards through all Korean speech messages
+  const allKorean = document.querySelectorAll('.msg-ai-korean');
+  if (allKorean.length > 0) {
+    const lastMsg = allKorean[allKorean.length - 1];
+    // Get the text content (skip the label div)
+    const divs = lastMsg.querySelectorAll('div');
+    for (let i = divs.length - 1; i >= 0; i--) {
+      if (!divs[i].classList.contains('msg-label') && divs[i].textContent.trim()) {
+        lastText = divs[i].textContent.trim();
+        break;
+      }
+    }
+  }
+  if (lastText) {
+    document.getElementById('show-phone-text').textContent = lastText;
+    document.getElementById('show-phone-overlay').classList.remove('hidden');
+  } else {
+    // Fallback: show a generic greeting
+    document.getElementById('show-phone-text').textContent = '안녕하세요';
+    document.getElementById('show-phone-overlay').classList.remove('hidden');
+  }
+}
+
 // ── 📊 Post-deal Done Screen ────────────────────────────────
 
 let lastVocab = null;
@@ -1455,6 +1476,7 @@ function renderDoneScreen(msg, action) {
     grade:    analysis?.grade,
     vocab:    msg.vocab,
     duration: analysis?.duration_mins,
+    log_html: document.getElementById('conv-log').innerHTML,
   });
 }
 
@@ -1500,6 +1522,7 @@ function saveSessionToHistory(data) {
     grade:    data.grade,
     vocab:    data.vocab || [],
     duration: data.duration || 0,
+    log_html: data.log_html || '',
   };
   sessions.unshift(entry);
   // Keep max 10
@@ -1533,25 +1556,31 @@ function showHistory() {
     item.className = 'history-item';
 
     const gradeColor = { A:'var(--green)', B:'#60a5fa', C:'var(--yellow)', D:'var(--orange)', F:'var(--red)' }[s.grade] || 'var(--muted)';
+
+    // XSS-safe helper
+    function esc(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+
     const scoreHTML  = s.score !== undefined
-      ? `<span class="history-item-score" style="color:${gradeColor}">${s.grade} · ${s.score}/100</span>`
+      ? `<span class="history-item-score" style="color:${gradeColor}">${esc(s.grade)} · ${s.score}/100</span>`
       : '';
 
     const vocabChips = (s.vocab || []).slice(0, 4).map(v =>
-      `<span class="vocab-chip">${v.korean}</span>`
+      `<span class="vocab-chip">${esc(v.korean)}</span>`
     ).join('');
 
     const typeEmoji = { bargain:'🛒', food_order:'🍲', pharmacy:'💊', directions:'🗺️',
                         transport:'🚌', official:'🏦', landlord:'🏠', general:'💬' }[s.type] || '💬';
     const outcomeEmoji = s.outcome?.includes('sos') ? '🚨' : s.outcome?.includes('cancel') ? '❌' : '✅';
+    const goalText = esc((s.goal || '').slice(0, 100)) + (s.goal && s.goal.length > 100 ? '…' : '');
+    const outcomeText = esc((s.outcome || '').replace(/_/g,' '));
 
     item.innerHTML = `
-      <div class="history-item-header">
-        <span class="history-item-date">${s.date}${s.duration ? ' · ' + s.duration + 'm' : ''}</span>
+      <div class="history-item-header" onclick="playReplay(${s.id})" style="cursor:pointer;" title="Click to replay this session">
+        <span class="history-item-date">${esc(s.date || '')}${s.duration ? ' · ' + s.duration + 'm' : ''}</span>
         ${scoreHTML}
       </div>
-      <div class="history-item-goal">${typeEmoji} ${s.goal.slice(0, 100)}${s.goal.length > 100 ? '…' : ''}</div>
-      <div class="history-item-meta">${outcomeEmoji} ${(s.outcome || '').replace(/_/g,' ')}</div>
+      <div class="history-item-goal">${typeEmoji} ${goalText}</div>
+      <div class="history-item-meta">${outcomeEmoji} ${outcomeText}</div>
       ${vocabChips ? `<div class="history-item-vocab">${vocabChips}</div>` : ''}
     `;
 
@@ -1568,6 +1597,24 @@ function clearHistory() {
   try { localStorage.removeItem(HISTORY_KEY); } catch {}
   document.getElementById('history-list').innerHTML =
     '<div class="history-empty">History cleared.</div>';
+}
+
+function playReplay(id) {
+  const sessions = loadAllSessions();
+  const session = sessions.find(s => s.id === id);
+  if (!session || !session.log_html) {
+    alert("Replay not available for this session.");
+    return;
+  }
+  document.getElementById('replay-log').innerHTML = session.log_html;
+  // Remove interactive buttons from replay
+  document.querySelectorAll('#replay-log button').forEach(b => b.remove());
+  document.getElementById('replay-modal').classList.remove('hidden');
+}
+
+function hideReplay() {
+  document.getElementById('replay-modal').classList.add('hidden');
+  document.getElementById('replay-log').innerHTML = '';
 }
 
 // ── Transcription Confirm Gate (uses existing HITL card) ────
@@ -1645,6 +1692,8 @@ async function startSession() {
 
 // ── WebSocket ───────────────────────────────────────────────
 
+let reconnectAttempts = 0;
+
 function connectWS() {
   if (ws) { ws.onclose = null; ws.close(); ws = null; }
 
@@ -1654,6 +1703,7 @@ function connectWS() {
   ws.binaryType = 'arraybuffer';
 
   ws.onopen = () => {
+    reconnectAttempts = 0;
     setStatus('Connected — preparing briefing…', 'green');
     const aggMap = {1: 'Polite', 2: 'Balanced', 3: 'Aggressive'};
     const formMap = {1: 'Casual', 2: 'Standard (-요)', 3: 'Formal (-습니다)'};
@@ -1672,8 +1722,16 @@ function connectWS() {
   ws.onclose = () => {
     stopSessionTimer();
     if (appState !== 'DONE') {
-      setStatus('Disconnected — tap Reset', 'red');
-      setMicEnabled(false);
+      if (reconnectAttempts < 3) {
+        setStatus(`Connection lost... Reconnecting (${reconnectAttempts + 1}/3)`, 'red');
+        setTimeout(() => {
+          reconnectAttempts++;
+          connectWS();
+        }, 2000 * Math.pow(1.5, reconnectAttempts));
+      } else {
+        setStatus('Disconnected — tap Reset', 'red');
+        setMicEnabled(false);
+      }
     }
     ws = null;
   };
@@ -1742,19 +1800,17 @@ function handleWSMessage(event) {
     return;
   }
 
-  // ── Transcription display handled by confirm gate below ──
-
-  // ── Transcription Confirm Gate ────────────────────────────
+  // ── Transcription display ────────────────────────────────
+  // M4 FIX: Server now handles the confirm gate for short transcripts
+  // by sending show_buttons BEFORE processing. The frontend just displays.
   if (action === 'transcription') {
     const text = msg.text || '';
-    const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
-    // For short/ambiguous responses (≤ 4 words), show a confirm gate
-    // so user can verify before the LLM acts on possibly wrong Whisper output
-    if (wordCount <= 4 && wordCount > 0 && msg.speaker === 'local') {
-      showTranscriptConfirm(text);
-    } else {
+    if (!msg.pending_confirm) {
+      // Normal transcript — add to log
       addMsg(text, 'local', '🎙️ Local said');
     }
+    // If pending_confirm is true, server is waiting for HITL response
+    // The show_buttons action will arrive separately and handle it
     return;
   }
   if (action === 'barge_in') {
@@ -1773,6 +1829,7 @@ function handleWSMessage(event) {
     appState = 'DONE';
     hideHITL();
     setMicEnabled(false);
+    stopSessionTimer();  // Fix L4: Stop timer on session end
     renderDoneScreen(msg, action);
     setTimeout(() => showScreen('done-screen'), 800);
     return;
@@ -1910,8 +1967,8 @@ function stopRecordingInternal(abort = false) {
   if (abort) {
     setStatus('Ready', '');
     document.getElementById('mic-hint').textContent = 'Hold 🎙️ to record · Release to send';
-    if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-    mediaStream = null;
+    // L1 Fix: Don't kill the stream on abort — just discard the recording data
+    // This prevents mobile browsers from re-asking mic permission every time
   } else {
     setStatus('👂 Processing...', 'yellow');
     document.getElementById('mic-hint').textContent = 'Hold 🎙️ to record · Release to send';

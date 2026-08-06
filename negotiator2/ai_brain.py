@@ -384,8 +384,8 @@ def _transcribe_via_hf(audio_bytes: bytes) -> str | None:
             timeout=40,
         )
         if r.status_code == 503:
-            logger.warning("HF Whisper model loading (cold start) — retry in 20s")
-            import time as _t; _t.sleep(20)
+            logger.warning("HF Whisper model loading (cold start) — retry in 10s. User may see a brief delay.")
+            import time as _t; _t.sleep(10)
             r = requests.post(
                 "https://api-inference.huggingface.co/models/openai/whisper-large-v3",
                 headers={**headers, "Content-Type": "audio/ogg"},
