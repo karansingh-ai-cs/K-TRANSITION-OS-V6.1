@@ -91,6 +91,7 @@ SITUATION TYPE: {context_type}
 USER PREFERENCES:
 - Aggressiveness: {aggressiveness} (If Polite: do not push prices hard. If Aggressive: use market-standard tactics and push harder.)
 - Formality: {formality} (Casual: -아/어. Standard: -요. Formal: -습니다.)
+- Payment Method Flexibility: Be highly adaptive. If the student specifies paying by card (카드), negotiate using card payment/transfer options gracefully and do not strictly force/mention cash payment if the student preferred card.
 
 PRICE HISTORY (Do not hallucinate prices, use these):
 {price_history}
@@ -214,7 +215,7 @@ TONE_MODIFIERS = {
     "bargain": """TONE: Polite but persistent negotiator.
 Real-life tactics:
 - Open with a friendly greeting and a specific lower price
-- Use 학생이라서 (I'm a student) and 현금으로 결제할게요 (I'll pay cash)
+- Use 학생이라서 (I'm a student). If card is preferred or mentioned, ask for card/account transfer options (카드 되나요? 계좌이체 되나요?). Suggest cash payment (현금) ONLY if cash is preferred or requested.
 - If refused: acknowledge their price, ask for ANY small discount (even ₩500)
 - If refused twice: use CONSULT_USER — ask student to accept, walk away, or try a bundle deal
 - Never sound desperate. Stay warm and smile in your tone.
@@ -361,6 +362,7 @@ class AssistantSession:
         self.consult_depth  = 0
         self.start_time     = time.time()
         self.turn_count     = 0
+        self.use_orpheus    = USE_ORPHEUS_TTS
 
     async def send_json(self, data: dict):
         try:
@@ -412,6 +414,18 @@ class AssistantSession:
 def is_valid_transcription(text: str) -> bool:
     if not text or len(text.strip()) < 3:
         return False
+
+    # Filter common Whisper hallucination patterns on pure noise/silence
+    hallucinations = {
+        "thank you for watching", "please subscribe", "thank you.", "thank you",
+        "watching", "subscribe", "subtitles by", "english translation", "underwater",
+        "translated by", "shutterstock", "h2o", "you", "oh", "um", "ah", "uh"
+    }
+    cleaned_lower = text.strip().lower().replace(".", "").replace(",", "").replace("!", "").replace("?", "")
+    if cleaned_lower in hallucinations:
+        logger.warning(f"Whisper hallucination filtered: {text!r}")
+        return False
+
     valid = re.findall(r'[\w\s\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]', text)
     ratio = len(valid) / max(len(text), 1)
     if ratio < 0.55:
@@ -519,7 +533,7 @@ async def tts_orpheus_bytes(text: str, lang: str = "ko") -> Optional[bytes]:
         return None
     voice = ORPHEUS_KOREAN_VOICE if lang == "ko" else ORPHEUS_ENGLISH_VOICE
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=3.5) as client:
             resp = await client.post(
                 "https://api.groq.com/openai/v1/audio/speech",
                 headers={
@@ -534,7 +548,11 @@ async def tts_orpheus_bytes(text: str, lang: str = "ko") -> Optional[bytes]:
                 },
             )
             if resp.status_code == 200:
-                return resp.content
+                content = resp.content
+                if content.startswith(b"{") or content.startswith(b"<html") or content.startswith(b"<!DOCTYPE"):
+                    logger.warning(f"Orpheus TTS returned non-audio error payload: {content[:200]}")
+                    return None
+                return content
             else:
                 logger.warning(f"Orpheus TTS HTTP {resp.status_code}: {resp.text[:200]}")
                 return None
@@ -555,10 +573,16 @@ async def stream_tts_orpheus(session: "AssistantSession", text: str, lang: str =
                 await session.send_audio(audio_bytes)
             return not session.barge_in_event.is_set()
         else:
-            logger.info("Orpheus TTS failed — falling back to edge-tts")
+            logger.info("Orpheus TTS failed — falling back to edge-tts and disabling Orpheus for this session")
+            session.use_orpheus = False
             # Fall back to edge-tts
             voice = KOREAN_TTS_VOICE if lang == "ko" else ENGLISH_TTS_VOICE
             return await _stream_edge_tts(session, text, voice)
+    except Exception as e:
+        logger.error(f"stream_tts_orpheus error: {e}, disabling Orpheus")
+        session.use_orpheus = False
+        voice = KOREAN_TTS_VOICE if lang == "ko" else ENGLISH_TTS_VOICE
+        return await _stream_edge_tts(session, text, voice)
     finally:
         session.is_speaking = False
 
@@ -590,7 +614,7 @@ async def stream_tts(session: "AssistantSession", text: str, voice: str) -> bool
     session.is_speaking = True
     try:
         lang = "ko" if "ko" in voice.lower() or voice == KOREAN_TTS_VOICE else "en"
-        if USE_ORPHEUS_TTS:
+        if getattr(session, "use_orpheus", False):
             return await stream_tts_orpheus(session, text, lang)
         else:
             return await _stream_edge_tts(session, text, voice)
@@ -1126,47 +1150,9 @@ async def negotiate_ws(websocket: WebSocket):
                                     "text": "🤫 Whisper saved — tap main mic to record local's response"
                                 })
                             else:
-                                # ── M4 FIX: Server-side confirm gate for short transcripts ──
-                                # For very short transcripts (≤4 words), the Whisper output is
-                                # often wrong. Ask the user to confirm BEFORE processing.
-                                word_count = len(text.strip().split())
-                                if word_count <= 4:
-                                    # Send confirm request to frontend and wait
-                                    session.hitl_event.clear()
-                                    session.hitl_choice = None
-                                    await session.send_json({
-                                        "action": "show_buttons",
-                                        "message": f'Did they say: "{text}" ?',
-                                        "buttons": ["✅ Yes, correct", "✏️ Edit manually", "❌ Re-record"],
-                                    })
-                                    await session.send_json({
-                                        "action": "transcription",
-                                        "text": text,
-                                        "speaker": "local",
-                                        "pending_confirm": True
-                                    })
-                                    try:
-                                        await asyncio.wait_for(session.hitl_event.wait(), timeout=60.0)
-                                    except asyncio.TimeoutError:
-                                        session.hitl_choice = "✅ Yes, correct"
-
-                                    choice = session.hitl_choice or "✅ Yes, correct"
-                                    if choice == "✅ Yes, correct":
-                                        asyncio.create_task(run_turn(session, text))
-                                    elif choice.startswith("✏️"):
-                                        # User will send corrected text via manual_input
-                                        await session.send_json({
-                                            "action": "status",
-                                            "text": "✏️ Type the correct text below"
-                                        })
-                                    else:
-                                        # Re-record — discard
-                                        await session.send_json({
-                                            "action": "status",
-                                            "text": "🎙️ Ready — tap mic to record again"
-                                        })
-                                else:
-                                    asyncio.create_task(run_turn(session, text))
+                                # ── BYPASSED: Server-side confirm gate for short transcripts ──
+                                # We bypass the word_count <= 4 check for fully simulated continuous natural dialogue.
+                                asyncio.create_task(run_turn(session, text))
                         else:
                             await session.send_json({
                                 "action": "status",

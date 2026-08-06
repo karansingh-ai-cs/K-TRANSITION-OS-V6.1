@@ -264,6 +264,11 @@
       border-radius: 8px;
       padding: 10px 12px;
       margin-bottom: 14px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .briefing-phrase:hover, .briefing-phrase:active {
+      background: rgba(34,197,94,.2);
     }
     .briefing-phrase-label { font-size: 10px; color: var(--green); font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
     .briefing-phrase-kr    { font-size: 18px; font-weight: 700; color: var(--text); }
@@ -418,9 +423,14 @@
       display: flex;
       align-items: baseline;
       gap: 6px;
-      padding: 4px 6px;
+      padding: 6px 8px;
       border-radius: 6px;
       background: var(--surface);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .phrase-item:hover, .phrase-item:active {
+      background: var(--border);
     }
     .phrase-kr  { font-size: 13px; font-weight: 700; color: #a8c4ff; white-space: nowrap; }
     .phrase-rom { font-size: 10px; color: var(--muted); flex: 1; }
@@ -1138,14 +1148,29 @@ function addMsg(text, type, label) {
   div.appendChild(content);
   
   if (type === 'ai-korean') {
+    const btnContainer = document.createElement('div');
+    btnContainer.style = 'display:flex; gap:6px; margin-top:8px;';
+
     const showBtn = document.createElement('button');
     showBtn.textContent = '📱 Show Phone';
-    showBtn.style = 'display:block; background:transparent; border:1px solid rgba(255,255,255,0.4); color:#fff; border-radius:6px; padding:4px 8px; font-size:10px; margin-top:8px; cursor:pointer; font-weight:600;';
-    showBtn.onclick = () => {
+    showBtn.style = 'background:transparent; border:1px solid rgba(255,255,255,0.4); color:#fff; border-radius:6px; padding:4px 8px; font-size:10px; cursor:pointer; font-weight:600;';
+    showBtn.onclick = (e) => {
+      e.stopPropagation();
       document.getElementById('show-phone-text').textContent = text;
       document.getElementById('show-phone-overlay').classList.remove('hidden');
     };
-    div.appendChild(showBtn);
+
+    const replayBtn = document.createElement('button');
+    replayBtn.textContent = '🔊 Replay';
+    replayBtn.style = 'background:transparent; border:1px solid var(--green); color:var(--green); border-radius:6px; padding:4px 8px; font-size:10px; cursor:pointer; font-weight:600;';
+    replayBtn.onclick = (e) => {
+      e.stopPropagation();
+      replayPhrase(text);
+    };
+
+    btnContainer.appendChild(showBtn);
+    btnContainer.appendChild(replayBtn);
+    div.appendChild(btnContainer);
   }
   
   log.appendChild(div);
@@ -1274,11 +1299,18 @@ async function handlePhotoUpload(event) {
 function showBriefing(text, phraseKr, phraseRom, phraseEn) {
   document.getElementById('briefing-text').textContent = text || 'Preparing your cultural briefing...';
 
+  const bPhrase = document.getElementById('briefing-phrase');
   if (phraseKr) {
     document.getElementById('bp-kr').textContent  = phraseKr;
     document.getElementById('bp-rom').textContent = phraseRom || '';
     document.getElementById('bp-en').textContent  = phraseEn  || '';
-    document.getElementById('briefing-phrase').style.display = 'block';
+    bPhrase.style.display = 'block';
+    const krSafe = phraseKr.replace(/'/g, "\\'");
+    bPhrase.onclick = () => {
+      replayPhrase(krSafe);
+    };
+  } else {
+    bPhrase.style.display = 'none';
   }
 
   document.getElementById('briefing-overlay').classList.remove('hidden');
@@ -1363,8 +1395,11 @@ function updatePhraseList(phrases) {
     const item = document.createElement('div');
     item.className = 'phrase-item';
     const krSafe = (p.kr || '').replace(/'/g, "\\'");
+    item.onclick = (e) => {
+      replayPhrase(krSafe);
+    };
     item.innerHTML = `
-      <button onclick="replayPhrase('${krSafe}')" style="background:transparent;border:none;cursor:pointer;font-size:14px;padding:2px;">🔊</button>
+      <span style="font-size:14px;padding-right:2px;user-select:none;">🔊</span>
       <span class="phrase-kr">${p.kr || ''}</span>
       <span class="phrase-rom">${p.rom || ''}</span>
       <span class="phrase-en">${p.en || ''}</span>
@@ -1672,7 +1707,7 @@ async function startSession() {
     try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
     catch (e) { console.error('AudioContext:', e); }
   }
-  if (audioCtx?.state === 'suspended') await audioCtx.resume();
+  unlockAudio();
 
   // Reset done screen
   document.getElementById('score-card').classList.remove('visible');
@@ -1858,7 +1893,7 @@ function startMicHold(event, whisper) {
   const btn = document.getElementById(whisper ? 'whisper-btn' : 'mic-btn');
   if (btn.classList.contains('disabled') || isRecording) return;
   
-  if (audioCtx?.state === 'suspended') audioCtx.resume();
+  unlockAudio();
   playTone('ready');
   holdStart = Date.now();
   startRecordingNew(whisper);
@@ -1973,6 +2008,21 @@ function stopRecordingInternal(abort = false) {
     setStatus('👂 Processing...', 'yellow');
     document.getElementById('mic-hint').textContent = 'Hold 🎙️ to record · Release to send';
   }
+}
+
+// ── iOS Audio WebApp Unlocker ───────────────────────────────
+
+function unlockAudio() {
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  const silentWav = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA== ";
+  const audio = new Audio(silentWav);
+  audio.play().then(() => {
+    console.log("iOS Audio Context and playback successfully unlocked!");
+  }).catch(err => {
+    console.warn("Audio unlock failed:", err);
+  });
 }
 
 // ── Audio Playback (Blob URL — works in Telegram WebView) ───
