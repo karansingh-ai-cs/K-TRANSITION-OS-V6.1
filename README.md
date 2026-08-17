@@ -174,8 +174,9 @@ K-Transition uses a **Single-Key, Multi-Model Cascading** architecture — TOS-c
 | Task Type | Model | Why This Model |
 |-----------|-------|---------------|
 | Casual Chat (Minsu) | Gemma 4 27B (Gemini) | **Unlimited TPM** — handles all chat volume |
-| Complex Questions | Qwen3-32B (Groq) | 60 RPM — best for concurrent users |
-| Quizzes & Summaries | LLaMA 3.1 8B (Groq) | 14,400 RPD — high-frequency tasks |
+| Complex Questions | GPT-OSS-120B (Groq) | Primary workhorse for complex reasoning |
+| Quizzes & Summaries | GPT-OSS-20B (Groq) | Fast, light model for quizzes and summaries |
+| Scout / Fallback | Qwen 3.6 27B (Groq) | Active Qwen model for fallback routing |
 | Image Analysis | Gemini 2.5 Flash | Vision-capable for food labels & signs |
 | Voice Notes | Whisper Turbo (Groq) | Korean+English mixed transcription |
 | Safety Filter | LLaMA Prompt Guard 86M | Tiny model, instant jailbreak detection |
