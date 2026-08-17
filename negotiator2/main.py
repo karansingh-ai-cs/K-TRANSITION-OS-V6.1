@@ -54,13 +54,12 @@ _groq_keys_str       = os.getenv("GROQ_API_KEY", "")
 GROQ_API_KEYS        = [k.strip() for k in _groq_keys_str.split(",") if k.strip()]
 WHISPER_MODEL        = "whisper-large-v3-turbo"
 GROQ_MODELS = [
-    "llama-3.3-70b-versatile",
-    "qwen/qwen3-32b",
-    "llama-3.1-8b-instant",
-    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "openai/gpt-oss-120b",
+    "qwen/qwen3.6-27b",
+    "openai/gpt-oss-20b",
 ]
-GROQ_LIGHT_MODEL = "llama-3.1-8b-instant"
-VISION_MODEL         = os.getenv("VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+GROQ_LIGHT_MODEL = "openai/gpt-oss-20b"
+VISION_MODEL     = "gemini-2.5-flash"
 KOREAN_TTS_VOICE     = "ko-KR-SunHiNeural"          # edge-tts fallback (FREE and BEST)
 ENGLISH_TTS_VOICE    = "en-US-AriaNeural"           # edge-tts fallback (FREE and BEST)
 
@@ -604,12 +603,9 @@ async def analyze_image(request: Request):
     """
     Accepts { "image": "<base64 jpeg/png>" }
     Returns { "goal": "...", "context_type": "..." }
-    Uses Llama 4 Scout vision (free on Groq).
+    Uses Gemini 2.5 Flash vision.
     """
-    groq_client = get_groq_client()
-    if not groq_client:
-        return JSONResponse({"error": "No Groq API key configured"}, status_code=500)
-
+    gemini_key = os.getenv("GEMINI_API_KEY", "").split(",")[0].strip()
     body = await request.json()
     image_b64 = body.get("image", "")
     if not image_b64:
@@ -619,47 +615,42 @@ async def analyze_image(request: Request):
     if "," in image_b64:
         image_b64 = image_b64.split(",", 1)[1]
 
-    try:
-        response = await groq_client.chat.completions.create(
-            model=VISION_MODEL,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{image_b64}"
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": (
-                            "You are helping an international student in South Korea. "
-                            "Analyze this image (it could be a shop signboard, menu, price tag, "
-                            "product label, receipt, or any Korean establishment). "
-                            "Detect what the student would most likely want to do here.\n\n"
-                            "Respond ONLY with valid JSON, no markdown:\n"
-                            '{"goal": "specific actionable goal in English (1-2 sentences, include any prices/items visible)", '
-                            '"context_type": "one of: bargain | food_order | pharmacy | directions | transport | official | landlord | general", '
-                            '"detected_place": "short English description of what this image shows"}'
-                        )
-                    }
-                ]
-            }],
-            max_tokens=300,
-            temperature=0.3,
-        )
-        raw = response.choices[0].message.content
-        # Strip markdown if model added it anyway
-        raw = re.sub(r"```json|```", "", raw).strip()
-        result = json.loads(raw)
-        return JSONResponse(result)
-    except json.JSONDecodeError as e:
-        logger.error(f"Vision model JSON parse error: {e} | raw: {raw[:200]}")
-        return JSONResponse({"error": "Could not parse vision response"}, status_code=500)
-    except Exception as e:
-        logger.error(f"Vision analysis failed: {e}")
-        return JSONResponse({"error": str(e)}, status_code=500)
+    prompt_text = (
+        "You are helping an international student in South Korea. "
+        "Analyze this image (it could be a shop signboard, menu, price tag, "
+        "product label, receipt, or any Korean establishment). "
+        "Detect what the student would most likely want to do here.\n\n"
+        "Respond ONLY with valid JSON, no markdown:\n"
+        '{"goal": "specific actionable goal in English (1-2 sentences, include any prices/items visible)", '
+        '"context_type": "one of: bargain | food_order | pharmacy | directions | transport | official | landlord | general", '
+        '"detected_place": "short English description of what this image shows"}'
+    )
+
+    if gemini_key:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+            payload = {
+                "contents": [{
+                    "parts": [
+                        {"inline_data": {"mime_type": "image/jpeg", "data": image_b64}},
+                        {"text": prompt_text}
+                    ]
+                }],
+                "generationConfig": {"temperature": 0.3, "maxOutputTokens": 300}
+            }
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.post(url, json=payload)
+                r.raise_for_status()
+                cands = r.json().get("candidates", [])
+                if cands:
+                    raw = cands[0]["content"]["parts"][0]["text"]
+                    raw = re.sub(r"```json|```", "", raw).strip()
+                    result = json.loads(raw)
+                    return JSONResponse(result)
+        except Exception as e:
+            logger.error(f"Gemini vision analysis failed: {e}")
+
+    return JSONResponse({"error": "Vision service unavailable"}, status_code=500)
 
 # ── LLM Calls ─────────────────────────────────────────────────────────────────
 

@@ -44,13 +44,14 @@
 
 | Model | RPM | RPD | TPM | Status | Use Case |
 |:------|:----|:----|:----|:-------|:---------|
-| qwen/qwen3-32b | 60 | 1,000 | 6K | ✅ USED | Complex queries (highest RPM) |
-| llama-3.1-8b-instant | 30 | 14,400 | 6K | ✅ USED | Quiz + summaries (highest RPD) |
-| llama-3.3-70b-versatile | 30 | 1,000 | 12K | ✅ USED | Deep reasoning fallback |
-| allam-2-7b | 30 | 7,000 | 6K | ✅ USED | Arabic language users |
-| meta-llama/llama-4-scout-17b | 30 | 1,000 | 30K | ✅ USED | Added to complex chain (30K TPM!) |
-| **openai/gpt-oss-120b** | 30 | 1,000 | 8K | ✅ ADDED | Extra complex fallback before Gemini |
-| **openai/gpt-oss-20b** | 30 | 1,000 | 8K | ✅ ADDED | Medium complexity backup |
+| **openai/gpt-oss-120b** | 30 | 1,000 | 8K | ✅ ACTIVE | Primary complex workhorse & negotiator |
+| **qwen/qwen3.6-27b** | 30 | 1,000 | 8K | ✅ ACTIVE | Secondary Scout & Qwen model |
+| **openai/gpt-oss-20b** | 30 | 1,000 | 8K | ✅ ACTIVE | Quiz, summaries & light fallback |
+| qwen/qwen3-32b | 0 | 0 | 0 | ❌ DEPRECATED | Shutdown July 17, 2026 -> Replaced by gpt-oss-120b |
+| llama-3.1-8b-instant | 30 | 14,400 | 6K | ❌ DEPRECATED | Shutdown August 16, 2026 -> Replaced by gpt-oss-20b |
+| llama-3.3-70b-versatile | 30 | 1,000 | 12K | ❌ DEPRECATED | Shutdown August 16, 2026 -> Replaced by gpt-oss-120b |
+| allam-2-7b | 30 | 7,000 | 6K | ❌ DEPRECATED | Replaced by gpt-oss-20b |
+| meta-llama/llama-4-scout-17b | 0 | 0 | 0 | ❌ DEPRECATED | Shutdown July 17, 2026 -> Replaced by qwen/qwen3.6-27b |
 | **meta-llama/llama-prompt-guard-2-86m** | 30 | 14,400 | 15K | ✅ ADDED | Content safety filter (14.4K RPD!) |
 | whisper-large-v3-turbo | 20 | 2,000 | — | ✅ USED | Voice transcription |
 | canopylabs/orpheus-arabic-saudi | 10 | 100 | 1.2K | ❌ TOO LIMITED | 100 RPD = 100 messages/day total. Useless for group bot |

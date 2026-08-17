@@ -79,22 +79,20 @@ IMAGEN_MODEL        = "imagen-4-fast-generate"     # 25 RPD — fast generation
 IMAGEN_HQ_MODEL     = "imagen-4-generate"          # 25 RPD — higher quality
 
 # ── GROQ MODELS ───────────────────────────────────────────────────────────────
-GROQ_LIGHT_MODEL  = "llama-3.1-8b-instant"          # 30 RPM, 14,400 RPD — quiz/summaries
-GROQ_FAST_MODEL   = "qwen/qwen3-32b"                # 60 RPM (!), 1K RPD — concurrent complex
-GROQ_HEAVY_MODEL  = "llama-3.3-70b-versatile"       # 30 RPM, 1K RPD — deep reasoning
-GROQ_SCOUT_MODEL  = "meta-llama/llama-4-scout-17b-16e-instruct"  # 30 RPM, 1K RPD, 30K TPM
-GROQ_ARABIC_MODEL = "allam-2-7b"                    # 30 RPM, 7K RPD — Arabic speakers
-GROQ_GPT120B      = "openai/gpt-oss-120b"           # 30 RPM, 1K RPD — extra complex fallback
+GROQ_LIGHT_MODEL  = "openai/gpt-oss-20b"            # 30 RPM, 1K RPD — quiz/summaries
+GROQ_FAST_MODEL   = "openai/gpt-oss-120b"           # 30 RPM, 1K RPD — primary complex workhorse
+GROQ_HEAVY_MODEL  = "openai/gpt-oss-120b"           # 30 RPM, 1K RPD — deep reasoning
+GROQ_SCOUT_MODEL  = "qwen/qwen3.6-27b"              # 30 RPM, 1K RPD — active Qwen replacement
+GROQ_ARABIC_MODEL = "openai/gpt-oss-20b"            # 30 RPM, 1K RPD — Arabic fallback
+GROQ_GPT120B      = "openai/gpt-oss-120b"           # 30 RPM, 1K RPD — extra complex reasoning
 GROQ_GPT20B       = "openai/gpt-oss-20b"            # 30 RPM, 1K RPD — medium complexity
 GROQ_GUARD_MODEL  = "meta-llama/llama-prompt-guard-2-86m"  # 30 RPM, 14.4K RPD — safety filter!
 
 # Groq general fallback chain (tried in this order on 429/fail)
 GROQ_MODELS = [
-    GROQ_FAST_MODEL,    # qwen3-32b: 60 RPM — handles concurrency best
-    GROQ_LIGHT_MODEL,   # llama-3.1-8b: 14.4K RPD — saves heavy quota
-    GROQ_SCOUT_MODEL,   # llama-4-scout: 30K TPM — handles long context
-    GROQ_GPT120B,       # gpt-oss-120b: extra complex reasoning
-    GROQ_HEAVY_MODEL,   # llama-3.3-70b: best quality, limited daily
+    GROQ_FAST_MODEL,    # gpt-oss-120b: primary complex reasoning
+    GROQ_SCOUT_MODEL,   # qwen3.6-27b: active Qwen model
+    GROQ_LIGHT_MODEL,   # gpt-oss-20b: lighter fast tasks
 ]
 
 # ── Voice Transcription ───────────────────────────────────────────────────────
