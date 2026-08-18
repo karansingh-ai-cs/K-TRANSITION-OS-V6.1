@@ -604,23 +604,29 @@ def call_gemini(messages: list, system_prompt: str = None, image_bytes: bytes = 
 
 
 def call_groq(messages: list, system_prompt: str = None) -> str | None:
-    """Backward compatible wrapper — acts as a Smart Interceptor for legacy code."""
+    """Backward compatible wrapper — acts as a Smart Interceptor for legacy code with full fallbacks."""
     # SMART INTERCEPTOR 1: Offload Buddy to Light Model (gpt-oss-20b)
     if system_prompt and ("Minsu" in system_prompt or "KakaoTalk" in system_prompt):
         logger.info("SMART INTERCEPT: Routing Minsu to Groq Light Model (gpt-oss-20b)")
-        return _call_groq_model(GROQ_LIGHT_MODEL, messages, system_prompt)
+        resp = _call_groq_model(GROQ_LIGHT_MODEL, messages, system_prompt)
+        if resp:
+            return resp
 
     # SMART INTERCEPTOR 2: Intent Classification to Light Model
     if system_prompt and "intent classifier" in system_prompt.lower():
         logger.info("SMART INTERCEPT: Routing Intent to Light Model (gpt-oss-20b)")
-        return _call_groq_model(GROQ_LIGHT_MODEL, messages, system_prompt)
+        resp = _call_groq_model(GROQ_LIGHT_MODEL, messages, system_prompt)
+        if resp:
+            return resp
 
     # SMART INTERCEPTOR 3: DormChef to Light Model
     if system_prompt and "Dorm-Chef" in system_prompt:
         logger.info("SMART INTERCEPT: Routing Chef to Light Model (gpt-oss-20b)")
-        return _call_groq_model(GROQ_LIGHT_MODEL, messages, system_prompt)
+        resp = _call_groq_model(GROQ_LIGHT_MODEL, messages, system_prompt)
+        if resp:
+            return resp
 
-    # Standard Fallback Chain for Complex tasks
+    # Standard Fallback Chain for Complex tasks or interceptor fallbacks
     for model in [GROQ_FAST_MODEL, GROQ_SCOUT_MODEL, GROQ_LIGHT_MODEL]:
         resp = _call_groq_model(model, messages, system_prompt, tools=SEARCH_TOOL)
         if resp:
