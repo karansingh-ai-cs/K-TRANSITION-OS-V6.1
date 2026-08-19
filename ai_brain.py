@@ -314,7 +314,13 @@ def _call_groq_model(model: str, messages: list, system_prompt: str = None,
     except requests.HTTPError as e:
         code = e.response.status_code
         if code == 429:
-            logger.warning("Groq 429 on model %s", model)
+            retry_after = e.response.headers.get("retry-after", "N/A")
+            remaining_req = e.response.headers.get("x-ratelimit-remaining-requests", "N/A")
+            remaining_tok = e.response.headers.get("x-ratelimit-remaining-tokens", "N/A")
+            logger.warning(
+                "Groq 429 rate limit hit on model %s | retry-after=%ss, remaining_req=%s, remaining_tok=%s",
+                model, retry_after, remaining_req, remaining_tok
+            )
             lock_groq_key(api_key)
         else:
             logger.error("Groq HTTP error on %s: %s | %s", model, e, e.response.text[:200])

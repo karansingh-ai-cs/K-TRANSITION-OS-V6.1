@@ -84,15 +84,17 @@ GROQ_FAST_MODEL   = "openai/gpt-oss-120b"           # 30 RPM, 1K RPD — primary
 GROQ_HEAVY_MODEL  = "openai/gpt-oss-120b"           # 30 RPM, 1K RPD — deep reasoning
 GROQ_SCOUT_MODEL  = "qwen/qwen3.6-27b"              # 30 RPM, 1K RPD — active Qwen replacement
 GROQ_ARABIC_MODEL = "openai/gpt-oss-20b"            # 30 RPM, 1K RPD — Arabic fallback
-GROQ_GPT120B      = "openai/gpt-oss-120b"           # 30 RPM, 1K RPD — extra complex reasoning
-GROQ_GPT20B       = "openai/gpt-oss-20b"            # 30 RPM, 1K RPD — medium complexity
-GROQ_GUARD_MODEL  = "meta-llama/llama-prompt-guard-2-86m"  # 30 RPM, 14.4K RPD — safety filter!
+GROQ_GPT120B        = "openai/gpt-oss-120b"           # 30 RPM, 1K RPD — extra complex reasoning
+GROQ_GPT20B         = "openai/gpt-oss-20b"            # 30 RPM, 1K RPD — medium complexity
+GROQ_SAFEGUARD_MODEL= "openai/gpt-oss-safeguard-20b"  # 30 RPM, 1K RPD — additional policy fallback
+GROQ_GUARD_MODEL    = "meta-llama/llama-prompt-guard-2-86m"  # 30 RPM, 14.4K RPD — safety filter!
 
 # Groq general fallback chain (tried in this order on 429/fail)
 GROQ_MODELS = [
-    GROQ_FAST_MODEL,    # gpt-oss-120b: primary complex reasoning
-    GROQ_SCOUT_MODEL,   # qwen3.6-27b: active Qwen model
-    GROQ_LIGHT_MODEL,   # gpt-oss-20b: lighter fast tasks
+    GROQ_FAST_MODEL,       # gpt-oss-120b: primary complex reasoning (1K RPD)
+    GROQ_SCOUT_MODEL,      # qwen3.6-27b: active Qwen model (1K RPD)
+    GROQ_LIGHT_MODEL,      # gpt-oss-20b: lighter fast tasks (1K RPD)
+    GROQ_SAFEGUARD_MODEL,  # gpt-oss-safeguard-20b: policy fallback (1K RPD)
 ]
 
 # ── Voice Transcription ───────────────────────────────────────────────────────
