@@ -56,6 +56,8 @@ WHISPER_MODEL        = "whisper-large-v3-turbo"
 GROQ_MODELS = [
     "openai/gpt-oss-120b",
     "qwen/qwen3.6-27b",
+    "groq/compound",
+    "groq/compound-mini",
     "openai/gpt-oss-20b",
 ]
 GROQ_LIGHT_MODEL = "openai/gpt-oss-20b"

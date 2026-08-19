@@ -56,8 +56,8 @@
 | whisper-large-v3-turbo | 20 | 2,000 | — | ✅ USED | Voice transcription |
 | canopylabs/orpheus-arabic-saudi | 10 | 100 | 1.2K | ❌ TOO LIMITED | 100 RPD = 100 messages/day total. Useless for group bot |
 | canopylabs/orpheus-v1-english | 10 | 100 | 1.2K | ❌ TOO LIMITED | Same — 100 RPD is nothing |
-| groq/compound | 30 | 250 | 70K | ❌ TOO LIMITED | 250 RPD = runs out in hours with 100 users |
-| groq/compound-mini | 30 | 250 | 70K | ❌ TOO LIMITED | Same — 250 RPD won't last a day |
+| **groq/compound** | 30 | 250 | 70K | ✅ ACTIVE | High-throughput burst capacity (70K TPM!) |
+| **groq/compound-mini** | 30 | 250 | 70K | ✅ ACTIVE | Lightweight compound fallback (70K TPM!) |
 | openai/gpt-oss-safeguard-20b | 30 | 1,000 | 8K | ❌ REDUNDANT | Same as prompt-guard but lower RPD. llama-prompt-guard better |
 | whisper-large-v3 | 20 | 2,000 | — | ❌ REPLACED | Turbo is faster with same limits |
 | meta-llama/llama-prompt-guard-2-22m | 30 | 14,400 | 15K | ⚠️ REDUNDANT | 22m = smaller version of 86m. Use 86m instead |

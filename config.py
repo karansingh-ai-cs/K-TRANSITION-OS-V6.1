@@ -86,6 +86,8 @@ GROQ_SCOUT_MODEL  = "qwen/qwen3.6-27b"              # 30 RPM, 1K RPD — active 
 GROQ_ARABIC_MODEL = "openai/gpt-oss-20b"            # 30 RPM, 1K RPD — Arabic fallback
 GROQ_GPT120B        = "openai/gpt-oss-120b"           # 30 RPM, 1K RPD — extra complex reasoning
 GROQ_GPT20B         = "openai/gpt-oss-20b"            # 30 RPM, 1K RPD — medium complexity
+GROQ_COMPOUND_MODEL = "groq/compound"                 # 30 RPM, 250 RPD, 70K TPM — compound reasoning
+GROQ_COMPOUND_MINI  = "groq/compound-mini"            # 30 RPM, 250 RPD, 70K TPM — lightweight compound
 GROQ_SAFEGUARD_MODEL= "openai/gpt-oss-safeguard-20b"  # 30 RPM, 1K RPD — additional policy fallback
 GROQ_GUARD_MODEL    = "meta-llama/llama-prompt-guard-2-86m"  # 30 RPM, 14.4K RPD — safety filter!
 
@@ -93,6 +95,8 @@ GROQ_GUARD_MODEL    = "meta-llama/llama-prompt-guard-2-86m"  # 30 RPM, 14.4K RPD
 GROQ_MODELS = [
     GROQ_FAST_MODEL,       # gpt-oss-120b: primary complex reasoning (1K RPD)
     GROQ_SCOUT_MODEL,      # qwen3.6-27b: active Qwen model (1K RPD)
+    GROQ_COMPOUND_MODEL,   # groq/compound: 70K TPM burst capacity (250 RPD)
+    GROQ_COMPOUND_MINI,    # groq/compound-mini: 70K TPM lightweight compound (250 RPD)
     GROQ_LIGHT_MODEL,      # gpt-oss-20b: lighter fast tasks (1K RPD)
     GROQ_SAFEGUARD_MODEL,  # gpt-oss-safeguard-20b: policy fallback (1K RPD)
 ]
