@@ -29,8 +29,8 @@ from config import (
     # Groq text models
     GROQ_LIGHT_MODEL, GROQ_FAST_MODEL, GROQ_HEAVY_MODEL,
     GROQ_ARABIC_MODEL, GROQ_SCOUT_MODEL,
-    GROQ_GPT120B, GROQ_GPT20B, GROQ_GUARD_MODEL,
-    GROQ_MODELS, WHISPER_MODEL,
+    GROQ_GPT120B, GROQ_GPT20B, GROQ_COMPOUND_MODEL, GROQ_COMPOUND_MINI,
+    GROQ_GUARD_MODEL, GROQ_MODELS, WHISPER_MODEL,
 )
 
 
@@ -314,7 +314,13 @@ def _call_groq_model(model: str, messages: list, system_prompt: str = None,
     except requests.HTTPError as e:
         code = e.response.status_code
         if code == 429:
-            logger.warning("Groq 429 on model %s", model)
+            retry_after = e.response.headers.get("retry-after", "N/A")
+            remaining_req = e.response.headers.get("x-ratelimit-remaining-requests", "N/A")
+            remaining_tok = e.response.headers.get("x-ratelimit-remaining-tokens", "N/A")
+            logger.warning(
+                "Groq 429 rate limit hit on model %s | retry-after=%ss, remaining_req=%s, remaining_tok=%s",
+                model, retry_after, remaining_req, remaining_tok
+            )
             lock_groq_key(api_key)
         else:
             logger.error("Groq HTTP error on %s: %s | %s", model, e, e.response.text[:200])
@@ -342,7 +348,7 @@ SEARCH_TOOL = [{
 
 
 def _route_buddy(messages: list) -> tuple[str | None, str | None]:
-    """BUDDY route: Gemma 4 27B → Gemma 4 31B → Flash Lite → 3.5 Flash → 3 Flash → final."""
+    """BUDDY route: Gemma 4 27B → Gemma 4 31B → Flash Lite → 3.5 Flash → 3 Flash → Groq Fallback."""
     # Tier A: Unlimited TPM models first
     resp = _call_gemini_model(GEMINI_BUDDY_MODEL, messages, KOREA_SYSTEM_PROMPT)
     if resp:
@@ -363,11 +369,17 @@ def _route_buddy(messages: list) -> tuple[str | None, str | None]:
         if resp:
             return resp, f"gemini/{model}"
 
+    # Cross-provider fallback: try Groq active models if Gemini is unavailable
+    for model in [GROQ_LIGHT_MODEL, GROQ_FAST_MODEL, GROQ_SCOUT_MODEL]:
+        resp = _call_groq_model(model, messages, KOREA_SYSTEM_PROMPT)
+        if resp:
+            return resp, f"groq/{model}"
+
     return None, None
 
 
 def _route_complex(messages: list) -> tuple[str | None, str | None]:
-    """COMPLEX route: GPT-OSS 120B → Qwen 3.6 27B → GPT-OSS 20B → Gemma fallback."""
+    """COMPLEX route: GPT-OSS 120B → Qwen 3.6 27B → Groq Compound → GPT-OSS 20B → Gemma fallback."""
     # Primary: GPT-OSS 120B (GROQ_FAST_MODEL)
     resp = _call_groq_model(GROQ_FAST_MODEL, messages, KOREA_SYSTEM_PROMPT,
                             max_tokens=900, tools=SEARCH_TOOL)
@@ -379,6 +391,12 @@ def _route_complex(messages: list) -> tuple[str | None, str | None]:
                             max_tokens=900, tools=SEARCH_TOOL)
     if resp:
         return resp, f"groq/{GROQ_SCOUT_MODEL}"
+
+    # High TPM Burst: Groq Compound (GROQ_COMPOUND_MODEL)
+    resp = _call_groq_model(GROQ_COMPOUND_MODEL, messages, KOREA_SYSTEM_PROMPT,
+                            max_tokens=900)
+    if resp:
+        return resp, f"groq/{GROQ_COMPOUND_MODEL}"
 
     # Fallback: GPT-OSS 20B (GROQ_LIGHT_MODEL)
     resp = _call_groq_model(GROQ_LIGHT_MODEL, messages, KOREA_SYSTEM_PROMPT,
@@ -604,25 +622,33 @@ def call_gemini(messages: list, system_prompt: str = None, image_bytes: bytes = 
 
 
 def call_groq(messages: list, system_prompt: str = None) -> str | None:
-    """Backward compatible wrapper — acts as a Smart Interceptor for legacy code."""
+    """Backward compatible wrapper — acts as a Smart Interceptor for legacy code with full fallbacks."""
     # SMART INTERCEPTOR 1: Offload Buddy to Light Model (gpt-oss-20b)
     if system_prompt and ("Minsu" in system_prompt or "KakaoTalk" in system_prompt):
         logger.info("SMART INTERCEPT: Routing Minsu to Groq Light Model (gpt-oss-20b)")
-        return _call_groq_model(GROQ_LIGHT_MODEL, messages, system_prompt)
+        resp = _call_groq_model(GROQ_LIGHT_MODEL, messages, system_prompt)
+        if resp:
+            return resp
 
     # SMART INTERCEPTOR 2: Intent Classification to Light Model
     if system_prompt and "intent classifier" in system_prompt.lower():
         logger.info("SMART INTERCEPT: Routing Intent to Light Model (gpt-oss-20b)")
-        return _call_groq_model(GROQ_LIGHT_MODEL, messages, system_prompt)
+        resp = _call_groq_model(GROQ_LIGHT_MODEL, messages, system_prompt)
+        if resp:
+            return resp
 
     # SMART INTERCEPTOR 3: DormChef to Light Model
     if system_prompt and "Dorm-Chef" in system_prompt:
         logger.info("SMART INTERCEPT: Routing Chef to Light Model (gpt-oss-20b)")
-        return _call_groq_model(GROQ_LIGHT_MODEL, messages, system_prompt)
+        resp = _call_groq_model(GROQ_LIGHT_MODEL, messages, system_prompt)
+        if resp:
+            return resp
 
-    # Standard Fallback Chain for Complex tasks
-    for model in [GROQ_FAST_MODEL, GROQ_SCOUT_MODEL, GROQ_LIGHT_MODEL]:
+    # Standard Fallback Chain for Complex tasks or interceptor fallbacks
+    for model in [GROQ_FAST_MODEL, GROQ_SCOUT_MODEL, GROQ_COMPOUND_MODEL, GROQ_LIGHT_MODEL]:
         resp = _call_groq_model(model, messages, system_prompt, tools=SEARCH_TOOL)
         if resp:
             return resp
-    return None
+
+    # Ultimate cross-provider fallback to Gemini if all Groq models fail
+    return call_gemini(messages, system_prompt)
