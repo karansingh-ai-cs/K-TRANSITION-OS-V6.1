@@ -80,7 +80,7 @@ Noise quiet hours: 10PM-7AM. Convenience stores (CU/GS25/7-Eleven): pay bills, A
 
 ━━ EMERGENCIES ━━
 112=Police, 119=Fire+Ambulance, 1345=Foreigner helpline (24/7 multilingual),
-1393=Crisis/suicide line, 182=Cybercrime.
+109=Crisis/suicide line, 182=Cybercrime.
 
 ━━ HOW TO RESPOND ━━
 1. Be SPECIFIC: "Kakao Bank" not "some bank". "1,250 won" not "a small amount".
@@ -89,7 +89,7 @@ Noise quiet hours: 10PM-7AM. Convenience stores (CU/GS25/7-Eleven): pay bills, A
 4. Keep responses SHORT for simple questions, detailed for complex ones.
 5. NEVER discuss topics outside Korea student life.
 6. ANTI-HALLUCINATION (CRITICAL): If the user asks about their personal info (Visa, University, Major, Arrival Date, etc.) and you do not know it, DO NOT GUESS. Explicitly ask them to provide it (e.g., "I don't know your visa type yet! What visa are you on?").
-7. If crisis (suicide/self-harm): IMMEDIATELY give 1393 and 1345.
+7. If crisis (suicide/self-harm): IMMEDIATELY give 109 and 1345.
 """
 
 # ── Task Type Constants ────────────────────────────────────────────────────────
@@ -209,7 +209,7 @@ def _call_gemini_model(model: str, messages: list, system_prompt: str = None,
 
     payload = {
         "contents": contents,
-        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600},
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 2048},
     }
 
     if system_prompt:
@@ -255,7 +255,7 @@ def _resize_image(image_bytes: bytes, max_px: int = 800) -> bytes:
 
 # ── Groq API (unified caller) ──────────────────────────────────────────────────
 def _call_groq_model(model: str, messages: list, system_prompt: str = None,
-                     max_tokens: int = 600, temperature: float = 0.7,
+                     max_tokens: int = 2048, temperature: float = 0.7,
                      tools: list = None) -> str | None:
     """Call any Groq model by name. Returns text or None."""
     api_key = get_groq_key()
@@ -382,25 +382,25 @@ def _route_complex(messages: list) -> tuple[str | None, str | None]:
     """COMPLEX route: GPT-OSS 120B → Qwen 3.6 27B → Groq Compound → GPT-OSS 20B → Gemma fallback."""
     # Primary: GPT-OSS 120B (GROQ_FAST_MODEL)
     resp = _call_groq_model(GROQ_FAST_MODEL, messages, KOREA_SYSTEM_PROMPT,
-                            max_tokens=900, tools=SEARCH_TOOL)
+                            max_tokens=2048, tools=SEARCH_TOOL)
     if resp:
         return resp, f"groq/{GROQ_FAST_MODEL}"
 
     # Secondary: Qwen 3.6 27B (GROQ_SCOUT_MODEL)
     resp = _call_groq_model(GROQ_SCOUT_MODEL, messages, KOREA_SYSTEM_PROMPT,
-                            max_tokens=900, tools=SEARCH_TOOL)
+                            max_tokens=2048, tools=SEARCH_TOOL)
     if resp:
         return resp, f"groq/{GROQ_SCOUT_MODEL}"
 
     # High TPM Burst: Groq Compound (GROQ_COMPOUND_MODEL)
     resp = _call_groq_model(GROQ_COMPOUND_MODEL, messages, KOREA_SYSTEM_PROMPT,
-                            max_tokens=900)
+                            max_tokens=2048)
     if resp:
         return resp, f"groq/{GROQ_COMPOUND_MODEL}"
 
     # Fallback: GPT-OSS 20B (GROQ_LIGHT_MODEL)
     resp = _call_groq_model(GROQ_LIGHT_MODEL, messages, KOREA_SYSTEM_PROMPT,
-                            max_tokens=900)
+                            max_tokens=2048)
     if resp:
         return resp, f"groq/{GROQ_LIGHT_MODEL}"
 
@@ -487,7 +487,7 @@ Respond ONLY with this JSON (no markdown):
     messages = [{"role": "user", "content": prompt}]
 
     # Primary: LLaMA 3.1 8B — 14.4K RPD — best for frequent quiz generation
-    raw = _call_groq_model(GROQ_LIGHT_MODEL, messages, max_tokens=600, temperature=0.3)
+    raw = _call_groq_model(GROQ_LIGHT_MODEL, messages, max_tokens=2048, temperature=0.3)
 
     # Fallback: Gemma 4 (1500 RPD)
     if not raw:
@@ -526,7 +526,7 @@ Content:
 {text[:2000]}"""
 
     messages = [{"role": "user", "content": prompt}]
-    resp = _call_groq_model(GROQ_LIGHT_MODEL, messages, max_tokens=400, temperature=0.5)
+    resp = _call_groq_model(GROQ_LIGHT_MODEL, messages, max_tokens=2048, temperature=0.5)
     if not resp:
         resp = _call_gemini_model(GEMINI_BUDDY_MODEL, messages)
     return resp

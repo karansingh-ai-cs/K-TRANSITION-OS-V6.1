@@ -385,7 +385,7 @@ def get_topic_intro(topic_key: str) -> str:
             "Anonymous option: type /anon support [your message]\n"
             "Nobody sees your name. Only the admins can see sender in safety situations.\n\n"
             "If you're in crisis right now:\n"
-            "📞 1393 (Korea Crisis Line, 24/7, free)\n"
+            "📞 109 (Korea Crisis Line, 24/7, free)\n"
             "📞 1345 (Multilingual foreigner support)"
         ),
         "future_students": (

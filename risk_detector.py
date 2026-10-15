@@ -276,7 +276,7 @@ def build_context_for_ai(scan_result, user_info):
 
     # risk flags
     if scan_result.get("is_crisis"):
-        context_parts.append("⚠️ CRISIS DETECTED: User may be experiencing mental health crisis. Prioritize crisis resources (1393, 1345) in your response.")
+        context_parts.append("⚠️ CRISIS DETECTED: User may be experiencing mental health crisis. Prioritize crisis resources (109, 1345) in your response.")
 
     if scan_result.get("is_scam"):
         context_parts.append("🔴 SCAM PATTERN DETECTED: User may be describing a deposit-without-contract situation. Warn them strongly and give specific steps to protect themselves.")
