@@ -1,18 +1,79 @@
 {
     "haram_ingredients": [
-        "pork", "pig", "bacon", "ham", "lard", "gelatin", "gelatine", "pig oil", "pig fat",
-        "alcohol", "wine", "beer", "soju", "makgeolli", "mirin", "cooking wine", "rum", "whiskey", "vodka",
-        "소주", "맥주", "막걸리", "돼지", "돼지고기", "돼지기름", "젤라틴",
-        "삼겹살", "samgyeopsal", "목살", "moksal",
-        "족발", "jokbal", "보쌈", "bossam", "순대", "sundae",
-        "선지", "항정살", "hangjeongsal", "돈", "돈육", "돈까스", "돈가스",
-        "요리술", "청주", "pepperoni", "salami", "소시지", "소세지", "햄",
-        "shortening", "쇼트닝", "emulsifier", "유화제", "marshmallow", "마시멜로", "마시멜로우"
+        "pork",
+        "pig",
+        "bacon",
+        "ham",
+        "lard",
+        "gelatin",
+        "gelatine",
+        "pig oil",
+        "pig fat",
+        "alcohol",
+        "wine",
+        "beer",
+        "soju",
+        "makgeolli",
+        "mirin",
+        "cooking wine",
+        "rum",
+        "whiskey",
+        "vodka",
+        "소주",
+        "맥주",
+        "막걸리",
+        "돼지",
+        "돼지고기",
+        "돼지기름",
+        "젤라틴",
+        "삼겹살",
+        "samgyeopsal",
+        "목살",
+        "moksal",
+        "족발",
+        "jokbal",
+        "보쌈",
+        "bossam",
+        "순대",
+        "sundae",
+        "선지",
+        "항정살",
+        "hangjeongsal",
+        "돈",
+        "돈육",
+        "돈까스",
+        "돈가스",
+        "요리술",
+        "청주",
+        "pepperoni",
+        "salami",
+        "소시지",
+        "소세지",
+        "햄",
+        "shortening",
+        "쇼트닝",
+        "emulsifier",
+        "유화제",
+        "marshmallow",
+        "마시멜로",
+        "마시멜로우"
     ],
     "rules": [
         {
             "id": "F001",
-            "keywords": ["pork", "돼지", "삼겹살", "bacon", "ham", "lard", "족발", "보쌈", "목살", "돈육", "갈비살"],
+            "keywords": [
+                "pork",
+                "돼지",
+                "삼겹살",
+                "bacon",
+                "ham",
+                "lard",
+                "족발",
+                "보쌈",
+                "목살",
+                "돈육",
+                "갈비살"
+            ],
             "risk": "HIGH",
             "problem": "This food contains pork or pork-derived ingredients. Not suitable for halal diet.",
             "action": [
@@ -24,7 +85,15 @@
         },
         {
             "id": "F002",
-            "keywords": ["mirin", "cooking wine", "요리술", "청주", "soju marinade", "beer batter", "wine sauce"],
+            "keywords": [
+                "mirin",
+                "cooking wine",
+                "요리술",
+                "청주",
+                "soju marinade",
+                "beer batter",
+                "wine sauce"
+            ],
             "risk": "MEDIUM",
             "problem": "This dish may contain alcohol as a cooking ingredient. Common in Korean marinades.",
             "action": [
@@ -35,7 +104,17 @@
         },
         {
             "id": "F003",
-            "keywords": ["감자탕", "설렁탕", "뼈해장국", "국밥", "seolleongtang", "gamjatang", "bone soup", "bone broth", "뼈"],
+            "keywords": [
+                "감자탕",
+                "설렁탕",
+                "뼈해장국",
+                "국밥",
+                "seolleongtang",
+                "gamjatang",
+                "bone soup",
+                "bone broth",
+                "뼈"
+            ],
             "risk": "HIGH",
             "problem": "This soup is made with PORK BONE broth. Even if you remove the meat, the broth itself contains pork.",
             "action": [
@@ -46,7 +125,14 @@
         },
         {
             "id": "F004",
-            "keywords": ["된장찌개", "doenjang", "doenjang jjigae", "kimchi soup", "나물", "namul"],
+            "keywords": [
+                "된장찌개",
+                "doenjang",
+                "doenjang jjigae",
+                "kimchi soup",
+                "나물",
+                "namul"
+            ],
             "risk": "MEDIUM",
             "problem": "This dish appears vegetarian but typically uses anchovy stock (멸치 육수) or fish sauce. Not vegetarian.",
             "action": [
@@ -57,7 +143,15 @@
         },
         {
             "id": "F005",
-            "keywords": ["유통기한", "소비기한", "expiry", "best before", "expired", "날짜", "제조일"],
+            "keywords": [
+                "유통기한",
+                "소비기한",
+                "expiry",
+                "best before",
+                "expired",
+                "날짜",
+                "제조일"
+            ],
             "risk": "LOW",
             "problem": "Korean date formats are different. Make sure you understand which date is which.",
             "action": [
@@ -69,7 +163,14 @@
         },
         {
             "id": "F006",
-            "keywords": ["spicy", "매운", "불닭", "핵불닭", "청양고추", "fire noodle"],
+            "keywords": [
+                "spicy",
+                "매운",
+                "불닭",
+                "핵불닭",
+                "청양고추",
+                "fire noodle"
+            ],
             "risk": "LOW",
             "problem": "Korean spicy food is MUCH hotter than you expect. Even 'mild' versions can be intense.",
             "action": [
@@ -80,7 +181,16 @@
         },
         {
             "id": "F007",
-            "keywords": ["gelatin", "gelatine", "젤라틴", "marshmallow", "마시멜로", "마시멜로우", "jelly", "젤리"],
+            "keywords": [
+                "gelatin",
+                "gelatine",
+                "젤라틴",
+                "marshmallow",
+                "마시멜로",
+                "마시멜로우",
+                "jelly",
+                "젤리"
+            ],
             "risk": "HIGH",
             "problem": "Many Korean jellies, candies, and marshmallows contain GELATIN (젤라틴) derived from pig skin/bones. Not halal or vegetarian.",
             "action": [
@@ -91,13 +201,41 @@
         },
         {
             "id": "F008",
-            "keywords": ["shortening", "쇼트닝", "emulsifier", "유화제", "lard", "돼지기름"],
+            "keywords": [
+                "shortening",
+                "쇼트닝",
+                "emulsifier",
+                "유화제",
+                "lard",
+                "돼지기름"
+            ],
             "risk": "MEDIUM",
             "problem": "Processed breads, pastries, and ramen may use SHORTENING (쇼트닝) or EMULSIFIERS (유화제) derived from animal fats (including lard/pork).",
             "action": [
                 "Check label for 식물성 유지 (vegetable fat) or 대두 (soy lecithin) which are safe.",
                 "If it only says '쇼트닝' or '유화제' without origin, it is doubtful (Mashbooh).",
                 "Halal-certified products in Asian marts are completely safe."
+            ]
+        },
+        {
+            "id": "F009",
+            "keywords": [
+                "egg",
+                "eggs",
+                "계란",
+                "dairy",
+                "milk",
+                "cheese",
+                "유제품",
+                "우유",
+                "치즈"
+            ],
+            "risk": "MEDIUM",
+            "problem": "This dish contains eggs (계란) or dairy (유제품), which are not vegan.",
+            "action": [
+                "Avoid if strictly vegan",
+                "Ask: 계란 빼주세요 (Please remove eggs) or 치즈 빼주세요 (Please remove cheese)",
+                "Check ingredient labels for 우유 (milk) or 난류 (eggs)"
             ]
         }
     ]

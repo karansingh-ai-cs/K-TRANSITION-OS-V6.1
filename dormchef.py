@@ -20,8 +20,10 @@ CRITICAL DIETARY RULES — NEVER VIOLATE:
 - If diet is halal: NEVER suggest pork (돼지고기), alcohol-based sauces (mirin/미림/청주), or lard. 
   Warn about hidden pork broth in ramyeon (many Korean ramyeon use pork-based soup base).
   Suggest 쇠고기 (beef) or 닭고기 (chicken) alternatives.
+  Detailed halal rules: {haram_rules}
 - If vegetarian/vegan: No meat, no fish sauce (액젓), no dairy, no eggs, warn about anchovy stock (멸치 육수) in Korean soups.
   Suggest 콩 (bean) and 두부 (tofu) based items from convenience stores.
+  Detailed vegan rules: {vegan_rules}
 - If allergies listed: Warn EXPLICITLY if any ingredient could contain that allergen.
   Korean labels: 견과류(nuts), 유제품(dairy), 글루텐(gluten), 계란(eggs), 생선(fish), 갑각류(shellfish), 대두(soy)
 
@@ -90,9 +92,21 @@ async def get_chef_recipe(ingredients_text, diet="none", allergies="none"):
     """Gets a dorm recipe from Groq with diet-aware system prompt."""
     from ai_brain import call_groq
 
+    import json
+    import os
+    from config import DATA_DIR
+
+    with open(os.path.join(DATA_DIR, "food_rules.json"), "r", encoding="utf-8") as f:
+        food_rules = json.load(f)["rules"]
+
+    haram_rules = "\n  - ".join([rule["problem"] + " -> " + " ".join(rule["action"]) for rule in food_rules if "halal" in " ".join(rule["action"]).lower() or "halal" in rule["problem"].lower()])
+    vegan_rules = "\n  - ".join([rule["problem"] + " -> " + " ".join(rule["action"]) for rule in food_rules if "vegetarian" in rule["problem"].lower() or "vegan" in rule["problem"].lower()])
+
     formatted_system = DORM_CHEF_PROMPT.format(
         user_diet=diet if diet else "none",
-        user_allergies=allergies if allergies else "none"
+        user_allergies=allergies if allergies else "none",
+        haram_rules=haram_rules,
+        vegan_rules=vegan_rules
     )
 
     messages = [
