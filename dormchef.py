@@ -5,8 +5,17 @@
 
 import asyncio
 import logging
+import json
+import os
+from config import DATA_DIR
 
 logger = logging.getLogger(__name__)
+
+# Load food rules once globally
+with open(os.path.join(DATA_DIR, "food_rules.json"), "r", encoding="utf-8") as _f:
+    _food_data = json.load(_f)
+GLOBAL_HARAM_RULES = "\n  - ".join([rule["problem"] + " -> " + " ".join(rule["action"]) for rule in _food_data.get("halal_rules", [])])
+GLOBAL_VEGAN_RULES = "\n  - ".join([rule["problem"] + " -> " + " ".join(rule["action"]) for rule in _food_data.get("vegan_rules", [])])
 
 DORM_CHEF_PROMPT = """You are 'Dorm-Chef 🧑‍🍳', a legendary Korean university student who survived 4 years 
 making 5-star meals using ONLY a microwave, a kettle, and cheap convenience store ingredients.
@@ -92,21 +101,11 @@ async def get_chef_recipe(ingredients_text, diet="none", allergies="none"):
     """Gets a dorm recipe from Groq with diet-aware system prompt."""
     from ai_brain import call_groq
 
-    import json
-    import os
-    from config import DATA_DIR
-
-    with open(os.path.join(DATA_DIR, "food_rules.json"), "r", encoding="utf-8") as f:
-        food_rules = json.load(f)["rules"]
-
-    haram_rules = "\n  - ".join([rule["problem"] + " -> " + " ".join(rule["action"]) for rule in food_rules if "halal" in " ".join(rule["action"]).lower() or "halal" in rule["problem"].lower()])
-    vegan_rules = "\n  - ".join([rule["problem"] + " -> " + " ".join(rule["action"]) for rule in food_rules if "vegetarian" in rule["problem"].lower() or "vegan" in rule["problem"].lower()])
-
     formatted_system = DORM_CHEF_PROMPT.format(
         user_diet=diet if diet else "none",
         user_allergies=allergies if allergies else "none",
-        haram_rules=haram_rules,
-        vegan_rules=vegan_rules
+        haram_rules=GLOBAL_HARAM_RULES,
+        vegan_rules=GLOBAL_VEGAN_RULES
     )
 
     messages = [

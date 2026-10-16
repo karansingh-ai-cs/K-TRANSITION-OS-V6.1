@@ -58,7 +58,7 @@
         "마시멜로",
         "마시멜로우"
     ],
-    "rules": [
+    "halal_rules": [
         {
             "id": "F001",
             "keywords": [
@@ -124,62 +124,6 @@
             ]
         },
         {
-            "id": "F004",
-            "keywords": [
-                "된장찌개",
-                "doenjang",
-                "doenjang jjigae",
-                "kimchi soup",
-                "나물",
-                "namul"
-            ],
-            "risk": "MEDIUM",
-            "problem": "This dish appears vegetarian but typically uses anchovy stock (멸치 육수) or fish sauce. Not vegetarian.",
-            "action": [
-                "Ask: 멸치 육수 사용하나요? (Do you use anchovy broth?)",
-                "Request: 채소 육수로 만들어 주세요 (Please make with vegetable broth)",
-                "Temple food restaurants (사찰음식) serve strictly vegan Korean meals"
-            ]
-        },
-        {
-            "id": "F005",
-            "keywords": [
-                "유통기한",
-                "소비기한",
-                "expiry",
-                "best before",
-                "expired",
-                "날짜",
-                "제조일"
-            ],
-            "risk": "LOW",
-            "problem": "Korean date formats are different. Make sure you understand which date is which.",
-            "action": [
-                "유통기한 = best before / sell-by (sometimes still edible after)",
-                "소비기한 = use-by / expiry (do NOT eat after this one)",
-                "제조일 = date it was made",
-                "Format is YYYY.MM.DD"
-            ]
-        },
-        {
-            "id": "F006",
-            "keywords": [
-                "spicy",
-                "매운",
-                "불닭",
-                "핵불닭",
-                "청양고추",
-                "fire noodle"
-            ],
-            "risk": "LOW",
-            "problem": "Korean spicy food is MUCH hotter than you expect. Even 'mild' versions can be intense.",
-            "action": [
-                "Start with 순한 맛 (mild flavor) option",
-                "Drink milk or eat rice to neutralize spice — NOT water",
-                "Say 덜 맵게 해주세요 (please make it less spicy)"
-            ]
-        },
-        {
             "id": "F007",
             "keywords": [
                 "gelatin",
@@ -218,6 +162,61 @@
             ]
         },
         {
+            "id": "F012",
+            "keywords": [
+                "라면",
+                "ramen",
+                "ramyeon",
+                "instant noodles",
+                "컵라면",
+                "cup noodle"
+            ],
+            "risk": "HIGH",
+            "problem": "Most Korean instant ramyeon (like Shin Ramyun) uses a beef-bone (사골) or pork-bone (돈골) based soup powder, even if it looks like just spicy powder.",
+            "action": [
+                "Avoid standard ramyeon if halal/vegan",
+                "Look for 'Halal' certified Shin Ramyun at Itaewon or foreign marts",
+                "For vegans, buy '순라면' (Soon Veggie Noodle) or '정면' (Jeongmyeon)"
+            ]
+        },
+        {
+            "id": "F014",
+            "keywords": [
+                "햄버거",
+                "burger",
+                "fast food",
+                "불고기버거",
+                "bulgogi burger"
+            ],
+            "risk": "HIGH",
+            "problem": "Even seemingly safe fast food options often cross-contaminate. Bulgogi sauce may contain cooking wine (mirin) and pork extract.",
+            "action": [
+                "Fast food chains in Korea are generally not halal-certified",
+                "Burger buns may contain animal-derived shortening/emulsifiers",
+                "Avoid if strictly halal/vegan"
+            ]
+        }
+    ],
+    "vegan_rules": [
+        {
+            "id": "F004",
+            "keywords": [
+                "된장찌개",
+                "doenjang",
+                "doenjang jjigae",
+                "kimchi soup",
+                "나물",
+                "namul"
+            ],
+            "risk": "MEDIUM",
+            "problem": "This dish appears vegetarian but typically uses anchovy stock (멸치 육수) or fish sauce. Not vegetarian.",
+            "action": [
+                "Ask: 멸치 육수 사용하나요? (Do you use anchovy broth?)",
+                "Request: 채소 육수로 만들어 주세요 (Please make with vegetable broth)",
+                "Temple food restaurants (사찰음식) serve strictly vegan Korean meals"
+            ]
+        },
+        {
             "id": "F009",
             "keywords": [
                 "egg",
@@ -236,6 +235,115 @@
                 "Avoid if strictly vegan",
                 "Ask: 계란 빼주세요 (Please remove eggs) or 치즈 빼주세요 (Please remove cheese)",
                 "Check ingredient labels for 우유 (milk) or 난류 (eggs)"
+            ]
+        },
+        {
+            "id": "F010",
+            "keywords": [
+                "kimchi",
+                "김치",
+                "새우젓",
+                "액젓",
+                "fish sauce",
+                "shrimp paste"
+            ],
+            "risk": "HIGH",
+            "problem": "Traditional Korean Kimchi almost always contains fish sauce (액젓) or fermented shrimp paste (새우젓). Not vegan/vegetarian.",
+            "action": [
+                "Do not assume Kimchi is vegan",
+                "Ask: 이 김치에 젓갈 들어가나요? (Does this Kimchi have fish sauce?)",
+                "At convenience stores, only buy Kimchi explicitly marked '비건' (Vegan)"
+            ]
+        },
+        {
+            "id": "F011",
+            "keywords": [
+                "gochujang",
+                "red pepper paste",
+                "고추장",
+                "쌈장",
+                "ssamjang"
+            ],
+            "risk": "LOW",
+            "problem": "Gochujang and Ssamjang are generally vegan, but some cheap commercial brands might use trace amounts of beef extract (쇠고기 엑기스).",
+            "action": [
+                "Generally safe for vegetarians, but strict vegans should check the label",
+                "Look for 쇠고기 (beef) on the back of the packet"
+            ]
+        },
+        {
+            "id": "F013",
+            "keywords": [
+                "빵",
+                "bread",
+                "bakery",
+                "식빵",
+                "white bread",
+                "cake",
+                "케이크"
+            ],
+            "risk": "MEDIUM",
+            "problem": "Korean bakeries frequently use milk (우유), butter (버터), and eggs (계란) in almost all breads, including simple white bread.",
+            "action": [
+                "Not suitable for strict vegans unless from a specific '비건 베이커리' (Vegan Bakery)",
+                "Ask: 우유나 계란 들어가나요? (Does it contain milk or eggs?)"
+            ]
+        },
+        {
+            "id": "F015",
+            "keywords": [
+                "어묵",
+                "fish cake",
+                "오뎅",
+                "odeng",
+                "떡볶이",
+                "tteokbokki"
+            ],
+            "risk": "HIGH",
+            "problem": "Tteokbokki sauce is often made with anchovy broth (멸치 육수), and it always contains fish cakes (어묵). Not vegan or vegetarian.",
+            "action": [
+                "Vegans should not eat street Tteokbokki",
+                "Ask: 어묵 빼주시고 물로 육수 내주실 수 있나요? (Can you remove fish cake and use water broth?) - though rarely possible for street food"
+            ]
+        }
+    ],
+    "general_rules": [
+        {
+            "id": "F005",
+            "keywords": [
+                "유통기한",
+                "소비기한",
+                "expiry",
+                "best before",
+                "expired",
+                "날짜",
+                "제조일"
+            ],
+            "risk": "LOW",
+            "problem": "Korean date formats are different. Make sure you understand which date is which.",
+            "action": [
+                "유통기한 = best before / sell-by (sometimes still edible after)",
+                "소비기한 = use-by / expiry (do NOT eat after this one)",
+                "제조일 = date it was made",
+                "Format is YYYY.MM.DD"
+            ]
+        },
+        {
+            "id": "F006",
+            "keywords": [
+                "spicy",
+                "매운",
+                "불닭",
+                "핵불닭",
+                "청양고추",
+                "fire noodle"
+            ],
+            "risk": "LOW",
+            "problem": "Korean spicy food is MUCH hotter than you expect. Even 'mild' versions can be intense.",
+            "action": [
+                "Start with 순한 맛 (mild flavor) option",
+                "Drink milk or eat rice to neutralize spice — NOT water",
+                "Say 덜 맵게 해주세요 (please make it less spicy)"
             ]
         }
     ]

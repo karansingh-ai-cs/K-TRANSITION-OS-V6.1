@@ -34,7 +34,7 @@ FOOD_DATA    = load_data("food_rules.json")
 HOUSING_DATA = load_data("housing_rules.json")
 GENERAL_DATA = load_data("general_rules.json")
 
-FOOD_RULES    = FOOD_DATA.get("rules", [])
+FOOD_RULES    = FOOD_DATA.get("halal_rules", []) + FOOD_DATA.get("vegan_rules", []) + FOOD_DATA.get("general_rules", [])
 HOUSING_RULES = HOUSING_DATA.get("rules", [])
 GENERAL_RULES = GENERAL_DATA.get("rules", [])
 HARAM_LIST    = FOOD_DATA.get("haram_ingredients", [])
