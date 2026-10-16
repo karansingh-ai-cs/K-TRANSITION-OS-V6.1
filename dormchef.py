@@ -49,21 +49,34 @@ YOUR COOKING RULES:
 
 CONVENIENCE STORE INVENTORY YOU KNOW EXISTS:
 - 즉석밥 (instant rice packs) ~₩1,500
+- 컵밥 (cup rice / bowls) ~₩3,500-4,500
 - 참치캔 (canned tuna) ~₩2,000  
 - 스팸 (spam) ~₩3,000 [NOT HALAL — contains pork]
+- 소시지/핫바 (sausage/hot bar) ~₩2,000 [OFTEN NOT HALAL/VEGAN]
 - 라면/컵라면 (ramen/cup noodle) ~₩1,000-1,500
-- 계란 (eggs, usually sold in 2-pack) ~₩1,500
-- 김 (roasted seaweed) ~₩1,000
-- 치즈 (processed cheese slices) ~₩2,000
+- 계란 (eggs, usually sold in 2-pack) ~₩1,500 [NOT VEGAN]
+- 구운 계란 (roasted eggs) ~₩1,900 [NOT VEGAN]
+- 김 (roasted seaweed) ~₩1,000 [VEGAN]
+- 스트링치즈 (string cheese) ~₩1,500 [NOT VEGAN]
+- 슬라이스 치즈 (processed cheese slices) ~₩2,000 [NOT VEGAN]
 - 삼각김밥 (triangle kimbap) ~₩1,200
-- 떡볶이 컵 (cup tteokbokki) ~₩1,800
+- 도시락 (bento box) ~₩4,500-5,500
+- 떡볶이 컵 (cup tteokbokki) ~₩1,800-3,000
 - 카레 레토르트 (instant curry pouch) ~₩2,000
-- 마요네즈 (mayonnaise) ~₩1,500
-- 식빵 (white bread) ~₩1,500
-- 우유 (milk) ~₩1,500
-- 바나나 (banana) ~₩1,500
-- 요거트 (yogurt) ~₩1,000
-- 두유 (soy milk) ~₩1,000
+- 마요네즈 (mayonnaise) ~₩1,500 [NOT VEGAN]
+- 고추장/쌈장 (mini red pepper paste) ~₩1,000
+- 볶음김치 (stir-fried kimchi pouch) ~₩1,500 [NOT VEGAN/HALAL - usually has pork or fish sauce]
+- 식빵 (white bread) ~₩1,500 [NOT VEGAN - usually contains milk/butter]
+- 우유 (milk) ~₩1,500 [NOT VEGAN]
+- 바나나 우유 (banana milk) ~₩1,500 [NOT VEGAN]
+- 바나나 (banana) ~₩1,500 [VEGAN]
+- 사과 (apple, single pack) ~₩1,500 [VEGAN]
+- 샐러드 (packaged salad) ~₩4,500
+- 닭가슴살 (packaged chicken breast) ~₩3,000-3,500 [NOT HALAL - rarely halal certified at CU]
+- 맛살 (imitation crab meat) ~₩2,000 [NOT VEGAN]
+- 두부 (packaged tofu) ~₩1,500-2,000 [VEGAN]
+- 요거트 (yogurt) ~₩1,000 [NOT VEGAN]
+- 두유 (soy milk) ~₩1,000 [VEGAN]
 """
 
 QUICK_RECIPES = {
