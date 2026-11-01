@@ -229,6 +229,10 @@ def _fallback(text: str) -> dict:
             "confidence": 0.7
         }
 
+    # Interpret intent
+    if any(w in t for w in ["interpret", "translate", "how do i say", "what does it mean", "meaning"]):
+        return {"intent": "interpret", "entities": {}, "korean_query": None, "confidence": 0.7}
+
     # Buddy intent
     if any(w in t for w in ["minsu", "buddy", "chat", "friend", "lonely", "homesick", "sad", "stressed", "depressed"]):
         return {

@@ -17,7 +17,7 @@ import io
 import logging
 import asyncio
 from config import (
-    get_groq_key, get_gemini_key, get_sambanova_key, lock_groq_key, lock_gemini_key,
+    get_groq_key, get_gemini_key, lock_groq_key, lock_gemini_key,
     # Gemini text models (all tiers)
     GEMINI_BUDDY_MODEL, GEMINI_BUDDY_BACKUP, GEMINI_FLASH_LITE,
     GEMINI_VISION_MODEL, GEMINI_MODEL, GEMINI_35_FLASH, GEMINI_3_FLASH,
@@ -31,8 +31,6 @@ from config import (
     GROQ_ARABIC_MODEL, GROQ_SCOUT_MODEL,
     GROQ_GPT120B, GROQ_GPT20B, GROQ_COMPOUND_MODEL, GROQ_COMPOUND_MINI,
     GROQ_GUARD_MODEL, GROQ_MODELS, WHISPER_MODEL,
-    # Sambanova models
-    SAMBANOVA_COMPLEX_MODEL, SAMBANOVA_BUDDY_MODEL,
 )
 
 
@@ -257,37 +255,6 @@ def _resize_image(image_bytes: bytes, max_px: int = 800) -> bytes:
         return image_bytes
 
 
-# ── Sambanova API (unified caller) ─────────────────────────────────────────────
-def _call_sambanova_model(model: str, messages: list, system_prompt: str = None,
-                          max_tokens: int = 600, temperature: float = 0.7) -> str | None:
-    """Call any Sambanova model by name. Returns text or None."""
-    api_key = get_sambanova_key()
-    if not api_key:
-        return None
-
-    # Context history pruning
-    pruned_messages = messages[-4:] if len(messages) > 4 else messages
-
-    api_messages = []
-    if system_prompt:
-        api_messages.append({"role": "system", "content": system_prompt})
-    api_messages.extend(pruned_messages)
-
-    body = {"model": model, "messages": api_messages,
-            "max_tokens": max_tokens, "temperature": temperature}
-
-    try:
-        r = requests.post(
-            "https://api.sambanova.ai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json=body, timeout=30,
-        )
-        r.raise_for_status()
-        return r.json()["choices"][0]["message"].get("content")
-    except Exception as e:
-        logger.error("Sambanova error on %s: %s", model, e)
-    return None
-
 # ── Groq API (unified caller) ──────────────────────────────────────────────────
 def _call_groq_model(model: str, messages: list, system_prompt: str = None,
                      max_tokens: int = 600, temperature: float = 0.7,
@@ -383,12 +350,7 @@ SEARCH_TOOL = [{
 
 
 def _route_buddy(messages: list) -> tuple[str | None, str | None]:
-    """BUDDY route: Sambanova LLaMA 3.3 → Gemma 4 27B → Gemma 4 31B → Flash Lite → 3.5 Flash → 3 Flash → Groq Fallback."""
-    # Primary: Sambanova
-    resp = _call_sambanova_model(SAMBANOVA_BUDDY_MODEL, messages, KOREA_SYSTEM_PROMPT)
-    if resp:
-        return resp, f"sambanova/{SAMBANOVA_BUDDY_MODEL}"
-
+    """BUDDY route: Gemma 4 27B → Gemma 4 31B → Flash Lite → 3.5 Flash → 3 Flash → Groq Fallback."""
     # Tier A: Unlimited TPM models first
     resp = _call_gemini_model(GEMINI_BUDDY_MODEL, messages, KOREA_SYSTEM_PROMPT)
     if resp:
@@ -419,13 +381,8 @@ def _route_buddy(messages: list) -> tuple[str | None, str | None]:
 
 
 def _route_complex(messages: list) -> tuple[str | None, str | None]:
-    """COMPLEX route: Sambanova LLaMA 3.3 → GPT-OSS 120B → Qwen 3.6 27B → Groq Compound → GPT-OSS 20B → Gemma fallback."""
-    # Primary: Sambanova LLaMA 3.3
-    resp = _call_sambanova_model(SAMBANOVA_COMPLEX_MODEL, messages, KOREA_SYSTEM_PROMPT, max_tokens=900)
-    if resp:
-        return resp, f"sambanova/{SAMBANOVA_COMPLEX_MODEL}"
-
-    # Secondary: GPT-OSS 120B (GROQ_FAST_MODEL)
+    """COMPLEX route: GPT-OSS 120B → Qwen 3.6 27B → Groq Compound → GPT-OSS 20B → Gemma fallback."""
+    # Primary: GPT-OSS 120B (GROQ_FAST_MODEL)
     resp = _call_groq_model(GROQ_FAST_MODEL, messages, KOREA_SYSTEM_PROMPT,
                             max_tokens=900, tools=SEARCH_TOOL)
     if resp:

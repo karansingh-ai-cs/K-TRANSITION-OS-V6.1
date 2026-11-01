@@ -44,4 +44,3 @@ duckduckgo-search>=7.0.0
 # ── Cloud Database (Turso via HTTP API — only needs requests, already listed above) ──
 # libsql-experimental removed — ab requests se kaam hota hai
 
-openai>=1.0.0

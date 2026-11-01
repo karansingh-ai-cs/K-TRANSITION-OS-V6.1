@@ -19,16 +19,12 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "YOUR_TELEGRAM_TOKEN_HERE")
 # Strictly using ONE key per provider to respect TOS and avoid abuse flags.
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").split(",")[0].strip()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").split(",")[0].strip()
-SAMBANOVA_API_KEY = os.getenv("SAMBANOVA_API_KEY", "").split(",")[0].strip()
 
 def get_groq_key() -> str:
     return GROQ_API_KEY
 
 def get_gemini_key() -> str:
     return GEMINI_API_KEY
-
-def get_sambanova_key() -> str:
-    return SAMBANOVA_API_KEY
 
 def lock_groq_key(api_key: str) -> None:
     """Log a Groq 429 rate limit event. Single-key mode = no rotation, just log."""
@@ -104,10 +100,6 @@ GROQ_MODELS = [
     GROQ_LIGHT_MODEL,      # gpt-oss-20b: lighter fast tasks (1K RPD)
     GROQ_SAFEGUARD_MODEL,  # gpt-oss-safeguard-20b: policy fallback (1K RPD)
 ]
-
-# ── SAMBANOVA MODELS ──────────────────────────────────────────────────────────
-SAMBANOVA_COMPLEX_MODEL = "Meta-Llama-3.3-70B-Instruct"
-SAMBANOVA_BUDDY_MODEL   = "Meta-Llama-3.3-70B-Instruct"
 
 # ── Voice Transcription ───────────────────────────────────────────────────────
 WHISPER_MODEL = "whisper-large-v3-turbo"   # 20 RPM, 2K RPD — faster than v3

@@ -885,11 +885,10 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
     if ai_response:
         prefix = "🔴 RISK DETECTED\n\n" if risk_level == "HIGH" and not scan_result.get("is_crisis") else ""
         final  = prefix + ai_response
-        final = _append_disclaimer(final, category)
     else:
         final = _fallback(scan_result)
 
-    await safe_send(update, final, parse_mode=ParseMode.MARKDOWN, reply_markup=nav_keyboard())
+    await safe_send(update, final, reply_markup=nav_keyboard())
 
     save_message(user_id, "user", text)
     if ai_response:
@@ -899,12 +898,6 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
     if streak > 0 and streak % 7 == 0:
         await update.message.reply_text(f"🔥 {streak}-day streak! You're building your Korea survival skills!")
 
-
-def _append_disclaimer(response: str, category: str) -> str:
-    """Appends a disclaimer for COMPLEX topics."""
-    if len(response) > 400 or category in ("complex", "legal", "official", "mental"):
-        return response + "\n\n_⚠️ AI can make mistakes. Please verify important information._"
-    return response
 
 def _fallback(scan_result: dict) -> str:
     category = scan_result.get("category", "general")
