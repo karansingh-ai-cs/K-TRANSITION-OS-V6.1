@@ -75,7 +75,7 @@ ORPHEUS_ENGLISH_VOICE= os.getenv("ORPHEUS_ENGLISH_VOICE", "Aoede")      # Englis
 # ^ Update these voice names from https://console.groq.com/docs/text-speech
 
 # Import our safe rotator from config to prevent bans
-from config import get_groq_key
+from config import get_groq_key, get_sambanova_key
 
 def get_groq_client():
     key = get_groq_key()
@@ -334,6 +334,14 @@ class AssistantSession:
         self.formality    = formality
         self.user_id      = "anonymous"
         self.groq_client  = get_groq_client()
+        sambanova_key = get_sambanova_key()
+        self.sambanova_client = None
+        if sambanova_key:
+            import openai
+            self.sambanova_client = openai.AsyncOpenAI(
+                api_key=sambanova_key,
+                base_url="https://api.sambanova.ai/v1",
+            )
 
         self.memory: list[dict] = []
         self.price_history: list[str] = []
@@ -724,13 +732,17 @@ async def run_llm(session: AssistantSession, user_input: str) -> dict:
     system = session.build_system_prompt()
 
     raw = ""
-    for model in GROQ_MODELS:
+
+    # Primary: Try Sambanova first if available
+    if session.sambanova_client:
         try:
-            response = await session.groq_client.chat.completions.create(
-                model=model,
+            # Note: Sambanova API doesn't guarantee JSON output formatting with `response_format`
+            # in all models, but we'll try it similar to groq
+            response = await session.sambanova_client.chat.completions.create(
+                model="Meta-Llama-3.3-70B-Instruct",
                 messages=[{"role": "system", "content": system}, *session.memory[-12:]],
                 max_tokens=700,
-                temperature=0.3,   # ← was 0.6; lower = more consistent Korean output
+                temperature=0.3,
                 response_format={"type": "json_object"},
                 stream=True
             )
@@ -742,13 +754,36 @@ async def run_llm(session: AssistantSession, user_input: str) -> dict:
                 delta = chunk.choices[0].delta.content
                 if delta:
                     raw += delta
-            break
         except Exception as e:
-            if "429" in str(e):
-                logger.warning(f"Groq rate limit on {model} — trying next model...")
-                continue
-            logger.error(f"LLM failed on {model}: {e}")
-            break
+            logger.warning(f"Sambanova failed: {e}. Falling back to Groq models...")
+            raw = "" # Reset raw in case of partial stream failure
+
+    if not raw:
+        for model in GROQ_MODELS:
+            try:
+                response = await session.groq_client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "system", "content": system}, *session.memory[-12:]],
+                    max_tokens=700,
+                    temperature=0.3,   # ← was 0.6; lower = more consistent Korean output
+                    response_format={"type": "json_object"},
+                    stream=True
+                )
+                first_chunk = True
+                async for chunk in response:
+                    if first_chunk:
+                        await session.send_json({"action": "status", "text": "🤔 Thinking..."})
+                        first_chunk = False
+                    delta = chunk.choices[0].delta.content
+                    if delta:
+                        raw += delta
+                break
+            except Exception as e:
+                if "429" in str(e):
+                    logger.warning(f"Groq rate limit on {model} — trying next model...")
+                    continue
+                logger.error(f"LLM failed on {model}: {e}")
+                break
 
     if raw:
         try:
