@@ -69,6 +69,7 @@ from differentiator import (
     get_cultural_tip
 )
 from helpers import (
+    chunk_text,
     setup_logging, clean_text, short_summary,
     is_rate_limited, validate_diet, validate_allergy
 )
@@ -149,7 +150,7 @@ ONBOARDING_STEPS = [
 async def safe_send(update: Update, text: str, parse_mode=None, reply_markup=None):
     """Send message, splitting into ≤4000-char chunks if needed."""
     MAX = 4000
-    chunks = [text[i:i+MAX] for i in range(0, max(len(text),1), MAX)]
+    chunks = chunk_text(text, MAX)
     for i, chunk in enumerate(chunks):
         markup = reply_markup if i == len(chunks)-1 else None
         try:
@@ -856,7 +857,7 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
             "🆘 You Matter — Help Is Available Right Now\n\n"
             "I hear that you're going through something really painful. You don't have to face this alone.\n\n"
             "Please reach out right now:\n"
-            "📞 1393 — Korea Crisis Line (24/7, Korean/English, free)\n"
+            "📞 109 — Korea Crisis Line (24/7, Korean/English, free)\n"
             "📞 1345 — Foreigner Support Line (24/7, multilingual)\n"
             "📞 119 — Emergency services\n\n"
             "At your university:\n"
@@ -1371,7 +1372,7 @@ async def cmd_emergency(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📞 112 — Police (say 'English please')\n"
         "📞 119 — Fire + Ambulance\n"
         "📞 1345 — Foreigner Helpline (24/7, many languages)\n"
-        "📞 1393 — Crisis/Suicide Line (24/7, free)\n"
+        "📞 109 — Crisis/Suicide Line (24/7, free)\n"
         "📞 182 — Cyber crime\n\n"
         "Non-emergency:\n"
         "🏥 Nearest hospital: search 응급실 on Naver Maps\n"

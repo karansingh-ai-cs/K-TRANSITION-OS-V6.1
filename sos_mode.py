@@ -150,7 +150,7 @@ def format_sos_general():
         "📞 119 — Ambulance + Fire\n"
         "📞 112 — Police (say 'English please')\n"
         "📞 1345 — Foreigner Help (24/7, your language)\n"
-        "📞 1393 — Crisis/Suicide Line (24/7, free)\n"
+        "📞 109 — Crisis/Suicide Line (24/7, free)\n"
         "📞 182 — Cyber Crime\n"
         "📞 1366 — Women's Emergency\n\n"
         "🚨 What's your emergency?\n\n"

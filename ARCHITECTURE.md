@@ -116,7 +116,7 @@ ktransition/
 │
 ├── 🛡️ SAFETY & DETECTION ──────────────────────────────────
 │   ├── risk_detector.py          # 🔍 PRE-AI RULE ENGINE
-│   │   ├── Crisis detection (suicide keywords → immediate 1393/1345)
+│   │   ├── Crisis detection (suicide keywords → immediate 109/1345)
 │   │   ├── Deposit scam pattern matching
 │   │   ├── Haram ingredient scanner (user diet-aware)
 │   │   ├── Allergen cross-reference (8 categories, Korean labels)

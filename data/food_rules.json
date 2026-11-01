@@ -1,18 +1,118 @@
 {
     "haram_ingredients": [
-        "pork", "pig", "bacon", "ham", "lard", "gelatin", "gelatine", "pig oil", "pig fat",
-        "alcohol", "wine", "beer", "soju", "makgeolli", "mirin", "cooking wine", "rum", "whiskey", "vodka",
-        "소주", "맥주", "막걸리", "돼지", "돼지고기", "돼지기름", "젤라틴",
-        "삼겹살", "samgyeopsal", "목살", "moksal",
-        "족발", "jokbal", "보쌈", "bossam", "순대", "sundae",
-        "선지", "항정살", "hangjeongsal", "돈", "돈육", "돈까스", "돈가스",
-        "요리술", "청주", "pepperoni", "salami", "소시지", "소세지", "햄",
-        "shortening", "쇼트닝", "emulsifier", "유화제", "marshmallow", "마시멜로", "마시멜로우"
+        "pork",
+        "pig",
+        "bacon",
+        "ham",
+        "lard",
+        "gelatin",
+        "gelatine",
+        "pig oil",
+        "pig fat",
+        "alcohol",
+        "wine",
+        "beer",
+        "soju",
+        "makgeolli",
+        "mirin",
+        "cooking wine",
+        "rum",
+        "whiskey",
+        "vodka",
+        "소주",
+        "맥주",
+        "막걸리",
+        "돼지",
+        "돼지고기",
+        "돼지기름",
+        "젤라틴",
+        "삼겹살",
+        "samgyeopsal",
+        "목살",
+        "moksal",
+        "족발",
+        "jokbal",
+        "보쌈",
+        "bossam",
+        "순대",
+        "sundae",
+        "선지",
+        "항정살",
+        "hangjeongsal",
+        "돈",
+        "돈육",
+        "돈까스",
+        "돈가스",
+        "요리술",
+        "청주",
+        "pepperoni",
+        "salami",
+        "소시지",
+        "소세지",
+        "햄",
+        "shortening",
+        "쇼트닝",
+        "emulsifier",
+        "유화제",
+        "marshmallow",
+        "마시멜로",
+        "마시멜로우",
+        "쇠고기",
+        "우육",
+        "chicken extract",
+        "치킨엑기스",
+        "비프엑기스",
+        "beef extract",
+        "pork extract",
+        "돈골",
+        "사골",
+        "beef bone",
+        "pork bone",
+        "beef stock",
+        "소고기 육수",
+        "animal fat",
+        "동물성 유지",
+        "tallow",
+        "우지",
+        "닭고기",
+        "계육",
+        "가금류",
+        "poultry",
+        "meat extract",
+        "고기추출물",
+        "broth",
+        "육수",
+        "seasoning containing meat",
+        "고기양념",
+        "bacon flavor",
+        "베이컨향",
+        "pork flavor",
+        "돼지고기향",
+        "meat powder",
+        "고기분말",
+        "rennet",
+        "레넷",
+        "carmine",
+        "카민",
+        "cochineal",
+        "코치닐"
     ],
-    "rules": [
+    "halal_rules": [
         {
             "id": "F001",
-            "keywords": ["pork", "돼지", "삼겹살", "bacon", "ham", "lard", "족발", "보쌈", "목살", "돈육", "갈비살"],
+            "keywords": [
+                "pork",
+                "돼지",
+                "삼겹살",
+                "bacon",
+                "ham",
+                "lard",
+                "족발",
+                "보쌈",
+                "목살",
+                "돈육",
+                "갈비살"
+            ],
             "risk": "HIGH",
             "problem": "This food contains pork or pork-derived ingredients. Not suitable for halal diet.",
             "action": [
@@ -24,7 +124,15 @@
         },
         {
             "id": "F002",
-            "keywords": ["mirin", "cooking wine", "요리술", "청주", "soju marinade", "beer batter", "wine sauce"],
+            "keywords": [
+                "mirin",
+                "cooking wine",
+                "요리술",
+                "청주",
+                "soju marinade",
+                "beer batter",
+                "wine sauce"
+            ],
             "risk": "MEDIUM",
             "problem": "This dish may contain alcohol as a cooking ingredient. Common in Korean marinades.",
             "action": [
@@ -35,7 +143,17 @@
         },
         {
             "id": "F003",
-            "keywords": ["감자탕", "설렁탕", "뼈해장국", "국밥", "seolleongtang", "gamjatang", "bone soup", "bone broth", "뼈"],
+            "keywords": [
+                "감자탕",
+                "설렁탕",
+                "뼈해장국",
+                "국밥",
+                "seolleongtang",
+                "gamjatang",
+                "bone soup",
+                "bone broth",
+                "뼈"
+            ],
             "risk": "HIGH",
             "problem": "This soup is made with PORK BONE broth. Even if you remove the meat, the broth itself contains pork.",
             "action": [
@@ -45,8 +163,90 @@
             ]
         },
         {
+            "id": "F007",
+            "keywords": [
+                "gelatin",
+                "gelatine",
+                "젤라틴",
+                "marshmallow",
+                "마시멜로",
+                "마시멜로우",
+                "jelly",
+                "젤리"
+            ],
+            "risk": "HIGH",
+            "problem": "Many Korean jellies, candies, and marshmallows contain GELATIN (젤라틴) derived from pig skin/bones. Not halal or vegetarian.",
+            "action": [
+                "Avoid typical jellies (like Haribo, unless marked halal) and marshmallows.",
+                "Check ingredients for 식물성 젤라틴 (vegetable pectin/agar) as a safe alternative.",
+                "Traditional Korean sweets like 떡 (rice cakes) are gelatin-free and safe!"
+            ]
+        },
+        {
+            "id": "F008",
+            "keywords": [
+                "shortening",
+                "쇼트닝",
+                "emulsifier",
+                "유화제",
+                "lard",
+                "돼지기름"
+            ],
+            "risk": "MEDIUM",
+            "problem": "Processed breads, pastries, and ramen may use SHORTENING (쇼트닝) or EMULSIFIERS (유화제) derived from animal fats (including lard/pork).",
+            "action": [
+                "Check label for 식물성 유지 (vegetable fat) or 대두 (soy lecithin) which are safe.",
+                "If it only says '쇼트닝' or '유화제' without origin, it is doubtful (Mashbooh).",
+                "Halal-certified products in Asian marts are completely safe."
+            ]
+        },
+        {
+            "id": "F012",
+            "keywords": [
+                "라면",
+                "ramen",
+                "ramyeon",
+                "instant noodles",
+                "컵라면",
+                "cup noodle"
+            ],
+            "risk": "HIGH",
+            "problem": "Most Korean instant ramyeon (like Shin Ramyun) uses a beef-bone (사골) or pork-bone (돈골) based soup powder, even if it looks like just spicy powder.",
+            "action": [
+                "Avoid standard ramyeon if halal/vegan",
+                "Look for 'Halal' certified Shin Ramyun at Itaewon or foreign marts",
+                "For vegans, buy '순라면' (Soon Veggie Noodle) or '정면' (Jeongmyeon)"
+            ]
+        },
+        {
+            "id": "F014",
+            "keywords": [
+                "햄버거",
+                "burger",
+                "fast food",
+                "불고기버거",
+                "bulgogi burger"
+            ],
+            "risk": "HIGH",
+            "problem": "Even seemingly safe fast food options often cross-contaminate. Bulgogi sauce may contain cooking wine (mirin) and pork extract.",
+            "action": [
+                "Fast food chains in Korea are generally not halal-certified",
+                "Burger buns may contain animal-derived shortening/emulsifiers",
+                "Avoid if strictly halal/vegan"
+            ]
+        }
+    ],
+    "vegan_rules": [
+        {
             "id": "F004",
-            "keywords": ["된장찌개", "doenjang", "doenjang jjigae", "kimchi soup", "나물", "namul"],
+            "keywords": [
+                "된장찌개",
+                "doenjang",
+                "doenjang jjigae",
+                "kimchi soup",
+                "나물",
+                "namul"
+            ],
             "risk": "MEDIUM",
             "problem": "This dish appears vegetarian but typically uses anchovy stock (멸치 육수) or fish sauce. Not vegetarian.",
             "action": [
@@ -56,8 +256,108 @@
             ]
         },
         {
+            "id": "F009",
+            "keywords": [
+                "egg",
+                "eggs",
+                "계란",
+                "dairy",
+                "milk",
+                "cheese",
+                "유제품",
+                "우유",
+                "치즈"
+            ],
+            "risk": "MEDIUM",
+            "problem": "This dish contains eggs (계란) or dairy (유제품), which are not vegan.",
+            "action": [
+                "Avoid if strictly vegan",
+                "Ask: 계란 빼주세요 (Please remove eggs) or 치즈 빼주세요 (Please remove cheese)",
+                "Check ingredient labels for 우유 (milk) or 난류 (eggs)"
+            ]
+        },
+        {
+            "id": "F010",
+            "keywords": [
+                "kimchi",
+                "김치",
+                "새우젓",
+                "액젓",
+                "fish sauce",
+                "shrimp paste"
+            ],
+            "risk": "HIGH",
+            "problem": "Traditional Korean Kimchi almost always contains fish sauce (액젓) or fermented shrimp paste (새우젓). Not vegan/vegetarian.",
+            "action": [
+                "Do not assume Kimchi is vegan",
+                "Ask: 이 김치에 젓갈 들어가나요? (Does this Kimchi have fish sauce?)",
+                "At convenience stores, only buy Kimchi explicitly marked '비건' (Vegan)"
+            ]
+        },
+        {
+            "id": "F011",
+            "keywords": [
+                "gochujang",
+                "red pepper paste",
+                "고추장",
+                "쌈장",
+                "ssamjang"
+            ],
+            "risk": "LOW",
+            "problem": "Gochujang and Ssamjang are generally vegan, but some cheap commercial brands might use trace amounts of beef extract (쇠고기 엑기스).",
+            "action": [
+                "Generally safe for vegetarians, but strict vegans should check the label",
+                "Look for 쇠고기 (beef) on the back of the packet"
+            ]
+        },
+        {
+            "id": "F013",
+            "keywords": [
+                "빵",
+                "bread",
+                "bakery",
+                "식빵",
+                "white bread",
+                "cake",
+                "케이크"
+            ],
+            "risk": "MEDIUM",
+            "problem": "Korean bakeries frequently use milk (우유), butter (버터), and eggs (계란) in almost all breads, including simple white bread.",
+            "action": [
+                "Not suitable for strict vegans unless from a specific '비건 베이커리' (Vegan Bakery)",
+                "Ask: 우유나 계란 들어가나요? (Does it contain milk or eggs?)"
+            ]
+        },
+        {
+            "id": "F015",
+            "keywords": [
+                "어묵",
+                "fish cake",
+                "오뎅",
+                "odeng",
+                "떡볶이",
+                "tteokbokki"
+            ],
+            "risk": "HIGH",
+            "problem": "Tteokbokki sauce is often made with anchovy broth (멸치 육수), and it always contains fish cakes (어묵). Not vegan or vegetarian.",
+            "action": [
+                "Vegans should not eat street Tteokbokki",
+                "Ask: 어묵 빼주시고 물로 육수 내주실 수 있나요? (Can you remove fish cake and use water broth?) - though rarely possible for street food"
+            ]
+        }
+    ],
+    "general_rules": [
+        {
             "id": "F005",
-            "keywords": ["유통기한", "소비기한", "expiry", "best before", "expired", "날짜", "제조일"],
+            "keywords": [
+                "유통기한",
+                "소비기한",
+                "expiry",
+                "best before",
+                "expired",
+                "날짜",
+                "제조일"
+            ],
             "risk": "LOW",
             "problem": "Korean date formats are different. Make sure you understand which date is which.",
             "action": [
@@ -69,35 +369,20 @@
         },
         {
             "id": "F006",
-            "keywords": ["spicy", "매운", "불닭", "핵불닭", "청양고추", "fire noodle"],
+            "keywords": [
+                "spicy",
+                "매운",
+                "불닭",
+                "핵불닭",
+                "청양고추",
+                "fire noodle"
+            ],
             "risk": "LOW",
             "problem": "Korean spicy food is MUCH hotter than you expect. Even 'mild' versions can be intense.",
             "action": [
                 "Start with 순한 맛 (mild flavor) option",
                 "Drink milk or eat rice to neutralize spice — NOT water",
                 "Say 덜 맵게 해주세요 (please make it less spicy)"
-            ]
-        },
-        {
-            "id": "F007",
-            "keywords": ["gelatin", "gelatine", "젤라틴", "marshmallow", "마시멜로", "마시멜로우", "jelly", "젤리"],
-            "risk": "HIGH",
-            "problem": "Many Korean jellies, candies, and marshmallows contain GELATIN (젤라틴) derived from pig skin/bones. Not halal or vegetarian.",
-            "action": [
-                "Avoid typical jellies (like Haribo, unless marked halal) and marshmallows.",
-                "Check ingredients for 식물성 젤라틴 (vegetable pectin/agar) as a safe alternative.",
-                "Traditional Korean sweets like 떡 (rice cakes) are gelatin-free and safe!"
-            ]
-        },
-        {
-            "id": "F008",
-            "keywords": ["shortening", "쇼트닝", "emulsifier", "유화제", "lard", "돼지기름"],
-            "risk": "MEDIUM",
-            "problem": "Processed breads, pastries, and ramen may use SHORTENING (쇼트닝) or EMULSIFIERS (유화제) derived from animal fats (including lard/pork).",
-            "action": [
-                "Check label for 식물성 유지 (vegetable fat) or 대두 (soy lecithin) which are safe.",
-                "If it only says '쇼트닝' or '유화제' without origin, it is doubtful (Mashbooh).",
-                "Halal-certified products in Asian marts are completely safe."
             ]
         }
     ]

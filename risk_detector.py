@@ -34,7 +34,7 @@ FOOD_DATA    = load_data("food_rules.json")
 HOUSING_DATA = load_data("housing_rules.json")
 GENERAL_DATA = load_data("general_rules.json")
 
-FOOD_RULES    = FOOD_DATA.get("rules", [])
+FOOD_RULES    = FOOD_DATA.get("halal_rules", []) + FOOD_DATA.get("vegan_rules", []) + FOOD_DATA.get("general_rules", [])
 HOUSING_RULES = HOUSING_DATA.get("rules", [])
 GENERAL_RULES = GENERAL_DATA.get("rules", [])
 HARAM_LIST    = FOOD_DATA.get("haram_ingredients", [])
@@ -276,7 +276,7 @@ def build_context_for_ai(scan_result, user_info):
 
     # risk flags
     if scan_result.get("is_crisis"):
-        context_parts.append("⚠️ CRISIS DETECTED: User may be experiencing mental health crisis. Prioritize crisis resources (1393, 1345) in your response.")
+        context_parts.append("⚠️ CRISIS DETECTED: User may be experiencing mental health crisis. Prioritize crisis resources (109, 1345) in your response.")
 
     if scan_result.get("is_scam"):
         context_parts.append("🔴 SCAM PATTERN DETECTED: User may be describing a deposit-without-contract situation. Warn them strongly and give specific steps to protect themselves.")

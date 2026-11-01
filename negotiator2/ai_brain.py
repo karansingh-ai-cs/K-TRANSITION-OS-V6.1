@@ -59,7 +59,7 @@ Convenience stores (CU/GS25/7-Eleven): pay bills, charge T-Money, ATM, print, ea
 
 ━━ EMERGENCIES ━━
 112=Police (say "English please"), 119=Fire+Ambulance, 1345=Foreigner helpline (24/7 multilingual),
-1393=Crisis/suicide line, 182=Cybercrime.
+109=Crisis/suicide line, 182=Cybercrime.
 
 ━━ HOW TO RESPOND ━━
 1. Be SPECIFIC: "Kakao Bank" not "some bank". "1,250 won" not "a small amount".
@@ -69,7 +69,7 @@ Convenience stores (CU/GS25/7-Eleven): pay bills, charge T-Money, ATM, print, ea
 5. NEVER discuss topics outside Korea student life.
 6. For food: always check hidden pork/alcohol/fish stock.
 7. For housing: always mention 등기부등본 and 전입신고.
-8. If crisis (suicide/self-harm): IMMEDIATELY give 1393 and 1345.
+8. If crisis (suicide/self-harm): IMMEDIATELY give 109 and 1345.
 """
 
 
